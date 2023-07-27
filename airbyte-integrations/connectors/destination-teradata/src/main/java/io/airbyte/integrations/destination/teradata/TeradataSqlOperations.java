@@ -80,7 +80,7 @@ public class TeradataSqlOperations extends JdbcSqlOperations {
     try {
       database.execute(String.format("CREATE DATABASE \"%s\" AS PERMANENT = 120e6, SPOOL = 120e6;", schemaName));
     } catch (SQLException e) {
-      if (e.getMessage().contains("already exists")) {
+      if (e.getMessage() != null && e.getMessage().contains("already exists")) {
         LOGGER.warn("Database " + schemaName + " already exists.");
       } else {
         AirbyteTraceMessageUtility.emitSystemErrorTrace(e, "Connector failed while creating schema ");
@@ -96,7 +96,7 @@ public class TeradataSqlOperations extends JdbcSqlOperations {
     try {
       database.execute(createTableQuery(database, schemaName, tableName));
     } catch (SQLException e) {
-      if (e.getMessage().contains("already exists")) {
+      if (e.getMessage() != null && e.getMessage().contains("already exists")) {
         LOGGER.warn("Table " + schemaName + "." + tableName + " already exists.");
       } else {
         AirbyteTraceMessageUtility.emitSystemErrorTrace(e, "Connector failed while creating table ");
@@ -127,23 +127,11 @@ public class TeradataSqlOperations extends JdbcSqlOperations {
 
   @Override
   public String truncateTableQuery(final JdbcDatabase database, final String schemaName, final String tableName) {
-    try {
-      return String.format("DELETE %s.%s ALL;\n", schemaName, tableName);
-    } catch (Exception e) {
-      AirbyteTraceMessageUtility.emitSystemErrorTrace(e,
-          "Connector failed while truncating table " + schemaName + "." + tableName);
-    }
-    return "";
+    return String.format("DELETE %s.%s ALL;\n", schemaName, tableName);
   }
 
   private String dropTableIfExistsQuery(final String schemaName, final String tableName) {
-    try {
-      return String.format("DROP TABLE  %s.%s;\n", schemaName, tableName);
-    } catch (Exception e) {
-      AirbyteTraceMessageUtility.emitSystemErrorTrace(e,
-          "Connector failed while dropping table " + schemaName + "." + tableName);
-    }
-    return "";
+    return String.format("DROP TABLE  %s.%s;\n", schemaName, tableName);
   }
 
   @Override
@@ -161,3 +149,4 @@ public class TeradataSqlOperations extends JdbcSqlOperations {
   }
 
 }
+
