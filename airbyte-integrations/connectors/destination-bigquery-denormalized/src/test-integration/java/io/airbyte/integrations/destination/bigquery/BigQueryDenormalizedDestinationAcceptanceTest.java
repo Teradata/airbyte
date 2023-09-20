@@ -45,6 +45,7 @@ import io.airbyte.protocol.models.v0.CatalogHelpers;
 import io.airbyte.protocol.models.v0.ConfiguredAirbyteCatalog;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.TimeZone;
@@ -125,7 +126,9 @@ public class BigQueryDenormalizedDestinationAcceptanceTest extends DestinationAc
     if (testCaseId.equals("S3A-1")) {
       // bigquery allows namespace starting with a number, and prepending underscore
       // will hide the dataset, so we don't do it as we do for other destinations
-      assertEquals("99namespace", actualNormalizedNamespace, message);
+      final int underscoreIndex = expectedNormalizedNamespace.indexOf("_", 1);
+      final String randomSuffix = expectedNormalizedNamespace.substring(underscoreIndex);
+      assertEquals("99namespace" + randomSuffix, actualNormalizedNamespace, message);
     } else {
       assertEquals(expectedNormalizedNamespace, actualNormalizedNamespace, message);
     }
@@ -203,7 +206,7 @@ public class BigQueryDenormalizedDestinationAcceptanceTest extends DestinationAc
   }
 
   @Override
-  protected void setup(final TestDestinationEnv testEnv) throws Exception {
+  protected void setup(final TestDestinationEnv testEnv, final HashSet<String> TEST_SCHEMAS) throws Exception {
     config = createConfig();
     bigquery = configureBigQuery(config);
     dataset = getBigQueryDataSet(config, bigquery);

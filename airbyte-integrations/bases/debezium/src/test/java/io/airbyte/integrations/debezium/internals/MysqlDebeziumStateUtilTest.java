@@ -5,6 +5,7 @@
 package io.airbyte.integrations.debezium.internals;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.airbyte.commons.json.Jsons;
 import io.airbyte.commons.string.Strings;
@@ -16,6 +17,7 @@ import io.airbyte.db.jdbc.DefaultJdbcDatabase;
 import io.airbyte.db.jdbc.JdbcDatabase;
 import io.airbyte.db.jdbc.JdbcUtils;
 import io.airbyte.integrations.debezium.internals.mysql.MySqlDebeziumStateUtil;
+import io.airbyte.integrations.debezium.internals.mysql.MySqlDebeziumStateUtil.MysqlDebeziumStateAttributes;
 import io.airbyte.protocol.models.Field;
 import io.airbyte.protocol.models.JsonSchemaType;
 import io.airbyte.protocol.models.v0.AirbyteCatalog;
@@ -65,7 +67,9 @@ public class MysqlDebeziumStateUtilTest {
       final JdbcDatabase database = getJdbcDatabase(container);
       final MySqlDebeziumStateUtil mySqlDebeziumStateUtil = new MySqlDebeziumStateUtil();
       final JsonNode debeziumState = mySqlDebeziumStateUtil.constructInitialDebeziumState(MYSQL_PROPERTIES, CONFIGURED_CATALOG, database);
-      Assertions.assertEquals(2, Jsons.object(debeziumState, Map.class).size());
+      Assertions.assertEquals(3, Jsons.object(debeziumState, Map.class).size());
+      Assertions.assertTrue(debeziumState.has("is_compressed"));
+      Assertions.assertFalse(debeziumState.get("is_compressed").asBoolean());
       Assertions.assertTrue(debeziumState.has("mysql_db_history"));
       Assertions.assertNotNull(debeziumState.get("mysql_db_history"));
       Assertions.assertTrue(debeziumState.has("mysql_cdc_offset"));
@@ -73,6 +77,13 @@ public class MysqlDebeziumStateUtilTest {
       Assertions.assertEquals(1, mysqlCdcOffset.size());
       Assertions.assertTrue(mysqlCdcOffset.containsKey("[\"" + DB_NAME + "\",{\"server\":\"" + DB_NAME + "\"}]"));
       Assertions.assertNotNull(mysqlCdcOffset.get("[\"" + DB_NAME + "\",{\"server\":\"" + DB_NAME + "\"}]"));
+
+      final Optional<MysqlDebeziumStateAttributes> parsedOffset = mySqlDebeziumStateUtil.savedOffset(MYSQL_PROPERTIES, CONFIGURED_CATALOG,
+          debeziumState.get("mysql_cdc_offset"), database.getSourceConfig());
+      Assertions.assertTrue(parsedOffset.isPresent());
+      Assertions.assertNotNull(parsedOffset.get().binlogFilename());
+      Assertions.assertTrue(parsedOffset.get().binlogPosition() > 0);
+      Assertions.assertTrue(parsedOffset.get().gtidSet().isEmpty());
       container.stop();
     }
   }
@@ -88,6 +99,22 @@ public class MysqlDebeziumStateUtilTest {
     Assertions.assertEquals(
         "{\"transaction_id\":null,\"ts_sec\":1686040570,\"file\":\"binlog.000002\",\"pos\":633,\"gtids\":\"3E11FA47-71CA-11E1-9E33-C80AA9429562:1-5\"}",
         stateAsMap.get("[\"db_fgnfxvllud\",{\"server\":\"db_fgnfxvllud\"}]"));
+
+    final JsonNode config = Jsons.jsonNode(ImmutableMap.builder()
+        .put(JdbcUtils.HOST_KEY, "host")
+        .put(JdbcUtils.PORT_KEY, "5432")
+        .put(JdbcUtils.DATABASE_KEY, "db_fgnfxvllud")
+        .put(JdbcUtils.USERNAME_KEY, "username")
+        .put(JdbcUtils.PASSWORD_KEY, "password")
+        .put(JdbcUtils.SSL_KEY, false)
+        .build());
+
+    final Optional<MysqlDebeziumStateAttributes> parsedOffset = mySqlDebeziumStateUtil.savedOffset(MYSQL_PROPERTIES, CONFIGURED_CATALOG,
+        debeziumState, config);
+    Assertions.assertTrue(parsedOffset.isPresent());
+    final JsonNode stateGeneratedUsingParsedOffset =
+        mySqlDebeziumStateUtil.format(parsedOffset.get(), "db_fgnfxvllud", Instant.parse("2023-06-06T08:36:10.341842Z"));
+    Assertions.assertEquals(debeziumState, stateGeneratedUsingParsedOffset);
   }
 
   @Test
@@ -100,6 +127,22 @@ public class MysqlDebeziumStateUtilTest {
     Assertions.assertTrue(stateAsMap.containsKey("[\"db_fgnfxvllud\",{\"server\":\"db_fgnfxvllud\"}]"));
     Assertions.assertEquals("{\"transaction_id\":null,\"ts_sec\":1686040570,\"file\":\"binlog.000002\",\"pos\":633}",
         stateAsMap.get("[\"db_fgnfxvllud\",{\"server\":\"db_fgnfxvllud\"}]"));
+
+    final JsonNode config = Jsons.jsonNode(ImmutableMap.builder()
+        .put(JdbcUtils.HOST_KEY, "host")
+        .put(JdbcUtils.PORT_KEY, "5432")
+        .put(JdbcUtils.DATABASE_KEY, "db_fgnfxvllud")
+        .put(JdbcUtils.USERNAME_KEY, "username")
+        .put(JdbcUtils.PASSWORD_KEY, "password")
+        .put(JdbcUtils.SSL_KEY, false)
+        .build());
+
+    final Optional<MysqlDebeziumStateAttributes> parsedOffset = mySqlDebeziumStateUtil.savedOffset(MYSQL_PROPERTIES, CONFIGURED_CATALOG,
+        debeziumState, config);
+    Assertions.assertTrue(parsedOffset.isPresent());
+    final JsonNode stateGeneratedUsingParsedOffset =
+        mySqlDebeziumStateUtil.format(parsedOffset.get(), "db_fgnfxvllud", Instant.parse("2023-06-06T08:36:10.341842Z"));
+    Assertions.assertEquals(debeziumState, stateGeneratedUsingParsedOffset);
   }
 
   private JdbcDatabase getJdbcDatabase(final MySQLContainer<?> container) {

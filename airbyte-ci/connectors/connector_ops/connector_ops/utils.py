@@ -16,7 +16,9 @@ import git
 import requests
 import yaml
 from ci_credentials import SecretsManager
+from pydash.objects import get
 from rich.console import Console
+from simpleeval import simple_eval
 
 console = Console()
 
@@ -44,6 +46,15 @@ def download_catalog(catalog_url):
 OSS_CATALOG = download_catalog(OSS_CATALOG_URL)
 METADATA_FILE_NAME = "metadata.yaml"
 ICON_FILE_NAME = "icon.svg"
+
+IMPORTANT_CONNECTOR_THRESHOLDS = {
+    "sl": 300,
+    "ql": 400,
+}
+
+ALLOWED_HOST_THRESHOLD = {
+    "ql": 300,
+}
 
 
 class ConnectorInvalidNameError(Exception):
@@ -120,8 +131,8 @@ def parse_gradle_dependencies(build_file: Path) -> Tuple[List[Path], List[Path]]
 
     dependencies_block = get_gradle_dependencies_block(build_file)
 
-    project_dependencies: List[Tuple[str, Path]] = []
-    test_dependencies: List[Tuple[str, Path]] = []
+    project_dependencies: List[Path] = []
+    test_dependencies: List[Path] = []
 
     # Find all matches for test dependencies and regular dependencies
     matches = re.findall(
@@ -139,6 +150,8 @@ def parse_gradle_dependencies(build_file: Path) -> Tuple[List[Path], List[Path]]
                 test_dependencies.append(path)
             else:
                 project_dependencies.append(path)
+
+    project_dependencies.append(Path("airbyte-cdk", "java", "airbyte-cdk"))
     return project_dependencies, test_dependencies
 
 
@@ -238,7 +251,7 @@ class Connector:
     def language(self) -> ConnectorLanguage:
         if Path(self.code_directory / self.technical_name.replace("-", "_") / "manifest.yaml").is_file():
             return ConnectorLanguage.LOW_CODE
-        if Path(self.code_directory / "setup.py").is_file():
+        if Path(self.code_directory / "setup.py").is_file() or Path(self.code_directory / "pyproject.toml").is_file():
             return ConnectorLanguage.PYTHON
         try:
             with open(self.code_directory / "Dockerfile") as dockerfile:
@@ -247,7 +260,6 @@ class Connector:
         except FileNotFoundError:
             pass
         return None
-        # raise ConnectorLanguageError(f"We could not infer {self.technical_name} connector language")
 
     @property
     def version(self) -> str:
@@ -273,8 +285,112 @@ class Connector:
         return self.metadata.get("name") if self.metadata else None
 
     @property
-    def release_stage(self) -> Optional[str]:
-        return self.metadata.get("releaseStage") if self.metadata else None
+    def support_level(self) -> Optional[str]:
+        return self.metadata.get("supportLevel") if self.metadata else None
+
+    def metadata_query_match(self, query_string: str) -> bool:
+        """Evaluate a query string against the connector metadata.
+
+        Based on the simpleeval library:
+        https://github.com/danthedeckie/simpleeval
+
+        Examples
+        --------
+        >>> connector.metadata_query_match("'s3' in data.name")
+        True
+
+        >>> connector.metadata_query_match("data.supportLevel == 'certified'")
+        False
+
+        >>> connector.metadata_query_match("data.ab_internal.ql >= 100")
+        True
+
+        Args:
+            query_string (str): The query string to evaluate.
+
+        Returns:
+            bool: True if the query string matches the connector metadata, False otherwise.
+        """
+        try:
+            matches = simple_eval(query_string, names={"data": self.metadata})
+            return bool(matches)
+        except Exception as e:
+            # Skip on error as we not all fields are present in all connectors.
+            logging.debug(f"Failed to evaluate query string {query_string} for connector {self.technical_name}, error: {e}")
+            return False
+
+    @property
+    def ab_internal_sl(self) -> int:
+        """Airbyte Internal Field.
+
+        More info can be found here: https://www.notion.so/Internal-Metadata-Fields-32b02037e7b244b7934214019d0b7cc9
+
+        Returns:
+            int: The value
+        """
+        default_value = 100
+        sl_value = get(self.metadata, "ab_internal.sl")
+
+        if sl_value is None:
+            logging.warning(
+                f"Connector {self.technical_name} does not have a `ab_internal.sl` defined in metadata.yaml. Defaulting to {default_value}"
+            )
+            return default_value
+
+        return sl_value
+
+    @property
+    def ab_internal_ql(self) -> int:
+        """Airbyte Internal Field.
+
+        More info can be found here: https://www.notion.so/Internal-Metadata-Fields-32b02037e7b244b7934214019d0b7cc9
+
+        Returns:
+            int: The value
+        """
+        default_value = 100
+        ql_value = get(self.metadata, "ab_internal.ql")
+
+        if ql_value is None:
+            logging.warning(
+                f"Connector {self.technical_name} does not have a `ab_internal.ql` defined in metadata.yaml. Defaulting to {default_value}"
+            )
+            return default_value
+
+        return ql_value
+
+    @property
+    def is_important_connector(self) -> bool:
+        """Check if a connector qualifies as an important connector.
+
+        Returns:
+            bool: True if the connector is a high value connector, False otherwise.
+        """
+        if self.ab_internal_sl >= IMPORTANT_CONNECTOR_THRESHOLDS["sl"]:
+            return True
+
+        if self.ab_internal_ql >= IMPORTANT_CONNECTOR_THRESHOLDS["ql"]:
+            return True
+
+        return False
+
+    @property
+    def requires_high_test_strictness_level(self) -> bool:
+        """Check if a connector requires high strictness CAT tests.
+
+        Returns:
+            bool: True if the connector requires high test strictness level, False otherwise.
+        """
+        return self.ab_internal_ql >= IMPORTANT_CONNECTOR_THRESHOLDS["ql"]
+
+    @property
+    def requires_allowed_hosts_check(self) -> bool:
+        """Check if a connector requires allowed hosts.
+
+        Returns:
+            bool: True if the connector requires allowed hosts, False otherwise.
+        """
+        return self.ab_internal_ql >= ALLOWED_HOST_THRESHOLD["ql"]
 
     @property
     def allowed_hosts(self) -> Optional[List[str]]:
@@ -366,3 +482,13 @@ def get_all_connectors_in_repo() -> Set[Connector]:
         for metadata_file in glob(f"{repo_path}/airbyte-integrations/connectors/**/metadata.yaml", recursive=True)
         if SCAFFOLD_CONNECTOR_GLOB not in metadata_file
     }
+
+
+class ConnectorTypeEnum(str, Enum):
+    source = "source"
+    destination = "destination"
+
+
+class SupportLevelEnum(str, Enum):
+    certified = "certified"
+    community = "community"
