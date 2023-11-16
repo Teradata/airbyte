@@ -124,7 +124,9 @@ class AdsInsights(FBMarketingIncrementalStream):
         job = stream_slice["insight_job"]
         try:
             for obj in job.get_result():
-                yield obj.export_all_data()
+                data = obj.export_all_data()
+                if self._response_data_is_valid(data):
+                    yield data
         except FacebookBadObjectError as e:
             raise AirbyteTracedException(
                 message=f"API error occurs on Facebook side during job: {job}, wrong (empty) response received with errors: {e} "
@@ -221,6 +223,12 @@ class AdsInsights(FBMarketingIncrementalStream):
         }
         self._api.account.get_insights(params=params, is_async=False)
 
+    def _response_data_is_valid(self, data: Iterable[Mapping[str, Any]]) -> bool:
+        """
+        Ensure data contains all the fields specified in self.breakdowns
+        """
+        return all([breakdown in data for breakdown in self.breakdowns])
+
     def stream_slices(
         self, sync_mode: SyncMode, cursor_field: List[str] = None, stream_state: Mapping[str, Any] = None
     ) -> Iterable[Optional[Mapping[str, Any]]]:
@@ -300,7 +308,9 @@ class AdsInsights(FBMarketingIncrementalStream):
         loader = ResourceSchemaLoader(package_name_from_class(self.__class__))
         schema = loader.get_schema("ads_insights")
         if self._fields:
-            schema["properties"] = {k: v for k, v in schema["properties"].items() if k in self._fields + [self.cursor_field]}
+            # 'date_stop' and 'account_id' are also returned by default, even if they are not requested
+            custom_fields = set(self._fields + [self.cursor_field, "date_stop", "account_id", "ad_id"])
+            schema["properties"] = {k: v for k, v in schema["properties"].items() if k in custom_fields}
         if self.breakdowns:
             breakdowns_properties = loader.get_schema("ads_insights_breakdowns")["properties"]
             schema["properties"].update({prop: breakdowns_properties[prop] for prop in self.breakdowns})

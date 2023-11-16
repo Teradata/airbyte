@@ -13,6 +13,7 @@ from cached_property import cached_property
 from facebook_business.adobjects.adaccount import AdAccount as FBAdAccount
 from facebook_business.adobjects.adimage import AdImage
 from facebook_business.adobjects.user import User
+from facebook_business.exceptions import FacebookRequestError
 
 from .base_insight_streams import AdsInsights
 from .base_streams import FBMarketingIncrementalStream, FBMarketingReversedIncrementalStream, FBMarketingStream
@@ -82,7 +83,7 @@ class CustomConversions(FBMarketingStream):
 
 
 class CustomAudiences(FBMarketingStream):
-    """doc: https://developers.facebook.com/docs/marketing-api/reference/custom-conversion"""
+    """doc: https://developers.facebook.com/docs/marketing-api/reference/custom-audience"""
 
     entity_prefix = "customaudience"
     enable_deleted = False
@@ -134,12 +135,22 @@ class Activities(FBMarketingIncrementalStream):
     def _state_filter(self, stream_state: Mapping[str, Any]) -> Mapping[str, Any]:
         """Additional filters associated with state if any set"""
         state_value = stream_state.get(self.cursor_field)
-        since = self._start_date if not state_value else pendulum.parse(state_value)
+        if stream_state:
+            since = pendulum.parse(state_value)
+        elif self._start_date:
+            since = self._start_date
+        else:
+            # if start_date is not specified then do not use date filters
+            return {}
 
         potentially_new_records_in_the_past = self._include_deleted and not stream_state.get("include_deleted", False)
         if potentially_new_records_in_the_past:
             self.logger.info(f"Ignoring bookmark for {self.name} because of enabled `include_deleted` option")
-            since = self._start_date
+            if self._start_date:
+                since = self._start_date
+            else:
+                # if start_date is not specified then do not use date filters
+                return {}
 
         return {"since": since.int_timestamp}
 
@@ -177,15 +188,31 @@ class AdAccount(FBMarketingStream):
         # https://developers.facebook.com/docs/marketing-apis/guides/javascript-ads-dialog-for-payments/
         # To access "funding_source_details", the user making the API call must have a MANAGE task permission for
         # that specific ad account.
-        if "funding_source_details" in properties and "MANAGE" not in self.get_task_permissions():
+        permissions = self.get_task_permissions()
+        if "funding_source_details" in properties and "MANAGE" not in permissions:
             properties.remove("funding_source_details")
-        if "is_prepay_account" in properties and "MANAGE" not in self.get_task_permissions():
+        if "is_prepay_account" in properties and "MANAGE" not in permissions:
             properties.remove("is_prepay_account")
         return properties
 
     def list_objects(self, params: Mapping[str, Any]) -> Iterable:
         """noop in case of AdAccount"""
-        return [FBAdAccount(self._api.account.get_id()).api_get(fields=self.fields)]
+        fields = self.fields
+        try:
+            return [FBAdAccount(self._api.account.get_id()).api_get(fields=fields)]
+        except FacebookRequestError as e:
+            # This is a workaround for cases when account seem to have all the required permissions
+            # but despite of that is not allowed to get `owner` field. See (https://github.com/airbytehq/oncall/issues/3167)
+            if e.api_error_code() == 200 and e.api_error_message() == "(#200) Requires business_management permission to manage the object":
+                fields.remove("owner")
+                return [FBAdAccount(self._api.account.get_id()).api_get(fields=fields)]
+            # FB api returns a non-obvious error when accessing the `funding_source_details` field
+            # even though user is granted all the required permissions (`MANAGE`)
+            # https://github.com/airbytehq/oncall/issues/3031
+            if e.api_error_code() == 100 and e.api_error_message() == "Unsupported request - method type: get":
+                fields.remove("funding_source_details")
+                return [FBAdAccount(self._api.account.get_id()).api_get(fields=fields)]
+            raise e
 
 
 class Images(FBMarketingReversedIncrementalStream):

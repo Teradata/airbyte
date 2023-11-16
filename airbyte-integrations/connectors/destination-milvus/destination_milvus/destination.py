@@ -7,7 +7,7 @@ from typing import Any, Iterable, Mapping
 
 from airbyte_cdk import AirbyteLogger
 from airbyte_cdk.destinations import Destination
-from airbyte_cdk.destinations.vector_db_based.embedder import CohereEmbedder, Embedder, FakeEmbedder, FromFieldEmbedder, OpenAIEmbedder
+from airbyte_cdk.destinations.vector_db_based.embedder import Embedder, create_from_config
 from airbyte_cdk.destinations.vector_db_based.indexer import Indexer
 from airbyte_cdk.destinations.vector_db_based.writer import Writer
 from airbyte_cdk.models import AirbyteConnectionStatus, AirbyteMessage, ConfiguredAirbyteCatalog, ConnectorSpecification, Status
@@ -18,15 +18,12 @@ from destination_milvus.indexer import MilvusIndexer
 BATCH_SIZE = 128
 
 
-embedder_map = {"openai": OpenAIEmbedder, "cohere": CohereEmbedder, "fake": FakeEmbedder, "from_field": FromFieldEmbedder}
-
-
 class DestinationMilvus(Destination):
     indexer: Indexer
     embedder: Embedder
 
     def _init_indexer(self, config: ConfigModel):
-        self.embedder = embedder_map[config.embedding.mode](config.embedding)
+        self.embedder = create_from_config(config.embedding, config.processing)
         self.indexer = MilvusIndexer(config.indexing, self.embedder.embedding_dimensions)
 
     def write(
