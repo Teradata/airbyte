@@ -9,7 +9,7 @@ jobs:
     name: "Run Airbyte Teradata Destination Connector Unit and Integration Tests"
     runs-on: "ubuntu-22.04"
     steps:
-      - name: "Checkout Teradata Connector Source Code"
+      - name: "Checkout Source Code"
         uses: actions/checkout@v4
         with:
           ref: td_develop
@@ -33,7 +33,7 @@ jobs:
           node-version: 16
       - name: Install jq
         run: sudo apt install -y jq
-      - name: Install Docker and Docker Compose
+      - name: "Install Docker and Docker Compose"
         run: |
           sudo apt-get update
           sudo apt-get install ca-certificates curl gnupg lsb-release
@@ -44,3 +44,5 @@ jobs:
           sudo apt-get update
           sudo apt-get install docker-ce docker-ce-cli containerd.io docker-compose-plugin
           sudo chmod 666 /var/run/docker.sock
+      - name: "Run Teradata Destination Connector Integration Tests"
+        run: ./gradlew :airbyte-integrations:connectors:destination-teradata:integrationTest
