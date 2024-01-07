@@ -66,4 +66,4 @@ jobs:
           sudo chmod +x /usr/local/bin/airbyte-ci
       - name: Test connectors
         run: |
-          airbyte-ci connectors --disable-update-check --name=destination-teradata test
+          airbyte-ci connectors --name=destination-teradata test
