@@ -61,10 +61,9 @@ jobs:
         id: install-airbyte-ci
         shell: bash
         run: |
-          curl -sSL  https://connectors.airbyte.com/airbyte-ci/releases/ubuntu/latest/airbyte-ci --output airbyte-ci-bin
+          curl -sSL  https://connectors.airbyte.com/files/airbyte-ci/releases/ubuntu/2.12.0/airbyte-ci --output airbyte-ci-bin
           sudo mv airbyte-ci-bin /usr/local/bin/airbyte-ci
           sudo chmod +x /usr/local/bin/airbyte-ci
       - name: Test connectors
         run: |
-          airbyte-ci update --version 2.12.0
           airbyte-ci connectors --disable-update-check --name=destination-teradata test
