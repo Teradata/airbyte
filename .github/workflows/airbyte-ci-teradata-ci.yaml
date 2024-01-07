@@ -71,7 +71,7 @@ jobs:
         if: always()
         uses: actions/jekyll-build-pages@v1
         with:
-         source: airbyte-integrations/connectors/destination-teradata/build/reports/tests/integrationTestJava
+         source: airbyte/airbyte-integrations/connectors/destination-teradata/build/reports/tests/integrationTestJava
          destination: ./_site
       - name: Upload Teradata Airbyte Connector Integration Tests Report to GITHUB page
         if: always()
