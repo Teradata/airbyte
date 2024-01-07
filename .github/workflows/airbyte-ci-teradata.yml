@@ -12,7 +12,7 @@ jobs:
       - name: "Checkout Source Code"
         uses: actions/checkout@v4
         with:
-          ref: td_develop
+          ref: change_table_kind
           persist-credentials: false
       - name: "Install PIP"
         run: |
