@@ -4,6 +4,10 @@ on:
     branches:
       - Change_Table_Kind
   workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+  id-token: write
 jobs:
   teradata-tests:
     name: "Run Airbyte Teradata Destination Connector Unit and Integration Tests"
@@ -55,3 +59,16 @@ jobs:
           AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
       - name: "Run Teradata Destination Connector Integration Tests"
         run: ./gradlew :airbyte-integrations:connectors:destination-teradata:integrationTest
+      - name: Build GITHUB Page for Teradata Airbyte Connector Integration Tests Report
+        if: always()
+        uses: actions/jekyll-build-pages@v1
+        with:
+         source: airbyte-integrations/connectors/destination-teradata/build/reports/tests/integrationTestJava
+         destination: ./_site
+      - name: Upload Teradata Airbyte Connector Integration Tests Report to GITHUB page
+        if: always()
+        uses: actions/upload-pages-artifact@v2
+      - name: Publish Teradata Airbyte Connector Integration Tests Report to GITHUB page
+        if: always()
+        id: deployment
+        uses: actions/deploy-pages@v2
