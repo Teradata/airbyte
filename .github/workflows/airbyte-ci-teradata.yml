@@ -2,7 +2,7 @@ name: airbyte-ci-teradata
 on:
   push:
     branches:
-      - td_develop
+      - change_table_kind
   workflow_dispatch:
 jobs:
   teradata-tests:
