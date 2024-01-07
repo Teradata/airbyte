@@ -2,7 +2,7 @@ name: airbyte-ci-teradata
 on:
   push:
     branches:
-      - change_table_kind
+      - Change_Table_Kind
   workflow_dispatch:
 jobs:
   teradata-tests:
@@ -12,7 +12,7 @@ jobs:
       - name: "Checkout Source Code"
         uses: actions/checkout@v4
         with:
-          ref: change_table_kind
+          ref: Change_Table_Kind
           persist-credentials: false
       - name: "Install PIP"
         run: |
