@@ -57,20 +57,12 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
+      - name: Install airbyte-ci binary
+        id: install-airbyte-ci
+        shell: bash
+        run: |
+          curl -sSL  https://connectors.airbyte.com/airbyte-ci/releases/ubuntu/latest/airbyte-ci --output airbyte-ci-bin
+          sudo mv airbyte-ci-bin /usr/local/bin/airbyte-ci
+          sudo chmod +x /usr/local/bin/airbyte-ci
       - name: Test connectors
-        uses: ./.github/actions/run-dagger-pipeline
-        with:
-          subcommand: "connectors --name=destination-teradata test"
-      - name: Build GITHUB Page for Teradata Airbyte Connector Integration Tests Report
-        if: always()
-        uses: actions/jekyll-build-pages@v1
-        with:
-         source: airbyte-integrations/connectors/destination-teradata/build/reports/tests/integrationTestJava
-         destination: ./_site
-      - name: Upload Teradata Airbyte Connector Integration Tests Report to GITHUB page
-        if: always()
-        uses: actions/upload-pages-artifact@v2
-      - name: Publish Teradata Airbyte Connector Integration Tests Report to GITHUB page
-        if: always()
-        id: deployment
-        uses: actions/deploy-pages@v2
+        run: airbyte-ci connectors --name=destination-teradata test
