@@ -58,7 +58,9 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
       - name: "Run Teradata Destination Connector Integration Tests"
-        run: ./gradlew :airbyte-integrations:connectors:destination-teradata:integrationTest
+        run:  |
+          REMOTE_CONNECTOR_CATALOG_URL=https://github.com/SatishChGit/AirbyteEnv/blob/main/oss_registry.json
+          ./gradlew :airbyte-integrations:connectors:destination-teradata:integrationTest
       - name: Build GITHUB Page for Teradata Airbyte Connector Integration Tests Report
         if: always()
         uses: actions/jekyll-build-pages@v1
