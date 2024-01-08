@@ -61,7 +61,7 @@ jobs:
         id: install-airbyte-ci
         shell: bash
         run: |
-          curl -sSL  https://connectors.airbyte.com/files/airbyte-ci/releases/ubuntu/2.12.0/airbyte-ci --output airbyte-ci-bin
+          curl -sSL  https://connectors.airbyte.com/files/airbyte-ci/releases/ubuntu/3.0.2/airbyte-ci --output airbyte-ci-bin
           sudo mv airbyte-ci-bin /usr/local/bin/airbyte-ci
           sudo chmod +x /usr/local/bin/airbyte-ci
       - name: Test connectors
