@@ -68,6 +68,6 @@ jobs:
         run: |
           airbyte-ci connectors --name=destination-teradata test
           mkdir integrationtestreport
-          ls -al airbyte-integrations/connectors/destination-teradata/build/reports/tests/integrationTestJava
-          cp -r  airbyte-integrations/connectors/destination-teradata/build/reports/tests/integrationTestJava integrationtestreport
+          ls -al ./airbyte-integrations/connectors/destination-teradata/build/reports/tests/integrationTestJava
+          cp -r  ./airbyte-integrations/connectors/destination-teradata/build/reports/tests/integrationTestJava integrationtestreport
       
