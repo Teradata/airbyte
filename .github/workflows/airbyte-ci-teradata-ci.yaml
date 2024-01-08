@@ -67,11 +67,14 @@ jobs:
       - name: Test connectors
         run: |
           airbyte-ci connectors --name=destination-teradata test
+          mkdir integrationtestreport
+          ls -al /airbyte/airbyte-integrations/connectors/destination-teradata/build/reports/tests/integrationTestJava
+          cp -r /airbyte/airbyte-integrations/connectors/destination-teradata/build/reports/tests/integrationTestJava integrationtestreport
       - name: Build GITHUB Page for Teradata Airbyte Connector Integration Tests Report
         if: always()
         uses: actions/jekyll-build-pages@v1
         with:
-         source: /airbyte/airbyte-integrations/connectors/destination-teradata/build/reports/tests/integrationTestJava
+         source: ./integrationtestreport
          destination: ./_site
       - name: Upload Teradata Airbyte Connector Integration Tests Report to GITHUB page
         if: always()
