@@ -1,4 +1,4 @@
-name: airbyte-ci-teradata-ci
+name: airbyte-ci-teradata-ci-branch
 on:
   push:
     branches-ignore:
