@@ -2,7 +2,7 @@ name: airbyte-ci-teradata
 on:
   push:
     branches:
-      - Acceptance_Tests_Failed
+      - td_develop
   workflow_dispatch:
   schedule:
   - cron: "0 6 * * *"
@@ -18,7 +18,7 @@ jobs:
       - name: "Checkout Source Code"
         uses: actions/checkout@v4
         with:
-          ref: Acceptance_Tests_Failed
+          ref: ${{ vars.BRANCH }}
           persist-credentials: false
       - name: "Install PIP"
         run: |
