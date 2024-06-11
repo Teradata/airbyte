@@ -54,7 +54,11 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
+      - name: "Install airbyte-ci binary to run Teradata Tests"
+        id: install-airbyte-ci
+        shell: bash
+        run: |
+          make tools.airbyte-ci.install
       - name: "Run Teradata Destination Connector Integration Tests"
         run: |
-          REMOTE_CONNECTOR_CATALOG_URL=https://github.com/SatishChGit/AirbyteEnv/blob/main/oss_registry.json
-          ./gradlew :airbyte-integrations:connectors:destination-teradata:integrationTest
+          airbyte-ci connectors --name=destination-teradata test
