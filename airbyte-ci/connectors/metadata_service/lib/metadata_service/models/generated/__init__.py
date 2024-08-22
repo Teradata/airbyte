@@ -19,8 +19,10 @@ from .RegistryOverrides import *
 from .ReleaseStage import *
 from .RemoteRegistries import *
 from .ResourceRequirements import *
+from .RolloutConfiguration import *
 from .Secret import *
 from .SecretStore import *
 from .SourceFileInfo import *
 from .SuggestedStreams import *
 from .SupportLevel import *
+from .TestConnections import *

@@ -60,6 +60,24 @@ _A_STATE = [
     )
 ]
 
+_A_PER_PARTITION_STATE = [
+    AirbyteStateMessage(
+        type="STREAM",
+        stream=AirbyteStreamState(
+            stream_descriptor=StreamDescriptor(name=_stream_name),
+            stream_state={
+                "states": [
+                    {
+                        "partition": {"key": "value"},
+                        "cursor": {"item_id": 0},
+                    },
+                ],
+                "parent_state": {},
+            }
+        )
+    )
+]
+
 MANIFEST = {
     "version": "0.30.3",
     "definitions": {
@@ -120,7 +138,7 @@ OAUTH_MANIFEST = {
                 "page_token_option": {"inject_into": "path", "type": "RequestPath"},
                 "pagination_strategy": {
                     "type": "CursorPagination",
-                    "cursor_value": "{{ response._metadata.next }}",
+                    "cursor_value": "{{ response.next }}",
                     "page_size": _page_size,
                 },
             },
@@ -505,7 +523,7 @@ def test_config_update():
         return_value=refresh_request_response,
     ):
         output = handle_connector_builder_request(
-            source, "test_read", config, ConfiguredAirbyteCatalog.parse_obj(CONFIGURED_CATALOG), _A_STATE, TestReadLimits()
+            source, "test_read", config, ConfiguredAirbyteCatalog.parse_obj(CONFIGURED_CATALOG), _A_PER_PARTITION_STATE, TestReadLimits()
         )
         assert output.record.data["latest_config_update"]
 
@@ -560,6 +578,31 @@ def test_read_returns_error_response(mock_from_exception):
     )
     response.record.emitted_at = 1
     assert response == expected_message
+
+
+def test_handle_429_response():
+    response = _create_429_page_response({"result": [{"error": "too many requests"}], "_metadata": {"next": "next"}})
+
+    # Add backoff strategy to avoid default endless backoff loop
+    TEST_READ_CONFIG["__injected_declarative_manifest"]['definitions']['retriever']['requester']['error_handler'] = {
+        "backoff_strategies": [
+            {
+                "type": "ConstantBackoffStrategy",
+                "backoff_time_in_seconds": 5
+            }
+        ]
+    }
+
+    config = TEST_READ_CONFIG
+    limits = TestReadLimits()
+    source = create_source(config, limits)
+
+    with patch("requests.Session.send", return_value=response) as mock_send:
+        response = handle_connector_builder_request(
+            source, "test_read", config, ConfiguredAirbyteCatalog.parse_obj(CONFIGURED_CATALOG), _A_PER_PARTITION_STATE, limits
+        )
+
+        mock_send.assert_called_once()
 
 
 @pytest.mark.parametrize(
@@ -660,7 +703,6 @@ def test_create_source():
     assert isinstance(source, ManifestDeclarativeSource)
     assert source._constructor._limit_pages_fetched_per_slice == limits.max_pages_per_slice
     assert source._constructor._limit_slices_fetched == limits.max_slices
-    assert source.streams(config={})[0].retriever.requester.max_retries == 0
 
 
 def request_log_message(request: dict) -> AirbyteMessage:
@@ -686,9 +728,23 @@ def _create_response(body, request):
     return response
 
 
+def _create_429_response(body, request):
+    response = requests.Response()
+    response.status_code = 429
+    response._content = bytes(json.dumps(body), "utf-8")
+    response.headers["Content-Type"] = "application/json"
+    response.request = request
+    return response
+
+
 def _create_page_response(response_body):
     request = _create_request()
     return _create_response(response_body, request)
+
+
+def _create_429_page_response(response_body):
+    request = _create_request()
+    return _create_429_response(response_body, request)
 
 
 @patch.object(
@@ -729,7 +785,7 @@ def test_read_source(mock_http_stream):
 
     source = create_source(config, limits)
 
-    output_data = read_stream(source, config, catalog, _A_STATE, limits).record.data
+    output_data = read_stream(source, config, catalog, _A_PER_PARTITION_STATE, limits).record.data
     slices = output_data["slices"]
 
     assert len(slices) == max_slices
@@ -774,7 +830,7 @@ def test_read_source_single_page_single_slice(mock_http_stream):
 
     source = create_source(config, limits)
 
-    output_data = read_stream(source, config, catalog, _A_STATE, limits).record.data
+    output_data = read_stream(source, config, catalog, _A_PER_PARTITION_STATE, limits).record.data
     slices = output_data["slices"]
 
     assert len(slices) == max_slices
@@ -830,7 +886,7 @@ def test_handle_read_external_requests(deployment_mode, url_base, expected_error
     source = create_source(config, limits)
 
     with mock.patch.dict(os.environ, {"DEPLOYMENT_MODE": deployment_mode}, clear=False):
-        output_data = read_stream(source, config, catalog, _A_STATE, limits).record.data
+        output_data = read_stream(source, config, catalog, _A_PER_PARTITION_STATE, limits).record.data
         if expected_error:
             assert len(output_data["logs"]) > 0, "Expected at least one log message with the expected error"
             error_message = output_data["logs"][0]
@@ -888,7 +944,7 @@ def test_handle_read_external_oauth_request(deployment_mode, token_url, expected
     source = create_source(config, limits)
 
     with mock.patch.dict(os.environ, {"DEPLOYMENT_MODE": deployment_mode}, clear=False):
-        output_data = read_stream(source, config, catalog, _A_STATE, limits).record.data
+        output_data = read_stream(source, config, catalog, _A_PER_PARTITION_STATE, limits).record.data
         if expected_error:
             assert len(output_data["logs"]) > 0, "Expected at least one log message with the expected error"
             error_message = output_data["logs"][0]
