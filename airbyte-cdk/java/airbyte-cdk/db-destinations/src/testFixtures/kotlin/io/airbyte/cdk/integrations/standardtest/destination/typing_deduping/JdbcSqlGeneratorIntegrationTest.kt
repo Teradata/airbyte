@@ -49,7 +49,7 @@ abstract class JdbcSqlGeneratorIntegrationTest<DestinationState : MinimumDestina
     protected abstract fun toJsonValue(valueAsString: String?): Field<*>?
 
     @Throws(SQLException::class)
-    private fun insertRecords(
+    open fun insertRecords(
         tableName: Name,
         columnNames: List<String>,
         records: List<JsonNode>,

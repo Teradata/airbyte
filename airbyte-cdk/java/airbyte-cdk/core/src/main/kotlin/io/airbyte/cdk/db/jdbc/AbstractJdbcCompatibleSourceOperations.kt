@@ -227,10 +227,16 @@ abstract class AbstractJdbcCompatibleSourceOperations<Datatype> :
         resultSet: ResultSet,
         index: Int
     ) {
-        node.put(
-            columnName,
-            DateTimeConverter.convertToTime(getObject(resultSet, index, LocalTime::class.java)),
-        )
+        try {
+            node.put(
+                columnName,
+                DateTimeConverter.convertToTime(getObject(resultSet, index, LocalTime::class.java)),
+            )
+        } catch (e: Throwable) {
+            // for backward compatibility
+            val instant = resultSet.getTime(index).toLocalTime()
+            node.put(columnName, DateTimeConverter.convertToTime(instant))
+        }
     }
 
     @Throws(SQLException::class)
