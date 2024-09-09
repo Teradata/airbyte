@@ -31,6 +31,12 @@ import org.jooq.SelectFieldOrAsterisk
 import org.jooq.conf.ParamType
 import org.jooq.impl.DSL
 import org.jooq.impl.SQLDataType
+import org.slf4j.LoggerFactory
+import java.sql.Timestamp
+import java.time.Instant
+import java.util.*
+import java.util.stream.Collectors
+import kotlin.Int
 
 abstract class JdbcSqlGenerator
 @JvmOverloads
@@ -249,6 +255,7 @@ constructor(
     }
 
     override fun createSchema(schema: String): Sql {
+        LOGGER.info("Jdbc createSchemaSQL: {}", schema)
         return of(createSchemaSql(schema))
     }
 
@@ -328,50 +335,38 @@ constructor(
         rawTableName: Name,
         namespace: String,
         tableName: String
-    ): String {
-        val hasGenerationId = columns == DestinationColumns.V2_WITH_GENERATION
-
-        val createTable: CreateTableColumnStep =
-            dslContext
-                .createTable(rawTableName)
-                .column(
-                    JavaBaseConstants.COLUMN_NAME_AB_RAW_ID,
-                    SQLDataType.VARCHAR(36).nullable(false),
-                )
-                .column(
-                    JavaBaseConstants.COLUMN_NAME_AB_EXTRACTED_AT,
-                    timestampWithTimeZoneType.nullable(false),
-                )
-                .column(
-                    JavaBaseConstants.COLUMN_NAME_AB_LOADED_AT,
-                    timestampWithTimeZoneType.nullable(true),
-                )
-                .column(JavaBaseConstants.COLUMN_NAME_DATA, structType.nullable(false))
-                .column(JavaBaseConstants.COLUMN_NAME_AB_META, structType.nullable(true))
-        if (hasGenerationId) {
-            createTable.column(JavaBaseConstants.COLUMN_NAME_AB_GENERATION_ID, SQLDataType.BIGINT)
-        }
-
-        val selectColumns: MutableList<SelectFieldOrAsterisk> =
-            mutableListOf(
-                DSL.field(JavaBaseConstants.COLUMN_NAME_AB_ID)
-                    .`as`(JavaBaseConstants.COLUMN_NAME_AB_RAW_ID),
-                DSL.field(JavaBaseConstants.COLUMN_NAME_EMITTED_AT)
-                    .`as`(JavaBaseConstants.COLUMN_NAME_AB_EXTRACTED_AT),
-                DSL.cast(null, timestampWithTimeZoneType)
-                    .`as`(JavaBaseConstants.COLUMN_NAME_AB_LOADED_AT),
-                DSL.field(JavaBaseConstants.COLUMN_NAME_DATA)
-                    .`as`(JavaBaseConstants.COLUMN_NAME_DATA),
-                DSL.cast(null, structType).`as`(JavaBaseConstants.COLUMN_NAME_AB_META),
+    ) =
+        dslContext
+            .createTable(rawTableName)
+            .column(
+                JavaBaseConstants.COLUMN_NAME_AB_RAW_ID,
+                SQLDataType.VARCHAR(36).nullable(false),
             )
-        if (hasGenerationId) {
-            selectColumns += DSL.value(0).`as`(JavaBaseConstants.COLUMN_NAME_AB_GENERATION_ID)
-        }
-
-        return createTable
-            .`as`(DSL.select(selectColumns).from(DSL.table(DSL.name(namespace, tableName))))
+            .column(
+                JavaBaseConstants.COLUMN_NAME_AB_EXTRACTED_AT,
+                timestampWithTimeZoneType.nullable(false),
+            )
+            .column(
+                JavaBaseConstants.COLUMN_NAME_AB_LOADED_AT,
+                timestampWithTimeZoneType.nullable(true),
+            )
+            .column(JavaBaseConstants.COLUMN_NAME_DATA, structType.nullable(false))
+            .column(JavaBaseConstants.COLUMN_NAME_AB_META, structType.nullable(true))
+            .`as`(
+                DSL.select(
+                    DSL.field(JavaBaseConstants.COLUMN_NAME_AB_ID)
+                        .`as`(JavaBaseConstants.COLUMN_NAME_AB_RAW_ID),
+                    DSL.field(JavaBaseConstants.COLUMN_NAME_EMITTED_AT)
+                        .`as`(JavaBaseConstants.COLUMN_NAME_AB_EXTRACTED_AT),
+                    DSL.cast(null, timestampWithTimeZoneType)
+                        .`as`(JavaBaseConstants.COLUMN_NAME_AB_LOADED_AT),
+                    DSL.field(JavaBaseConstants.COLUMN_NAME_DATA)
+                        .`as`(JavaBaseConstants.COLUMN_NAME_DATA),
+                    DSL.cast(null, structType).`as`(JavaBaseConstants.COLUMN_NAME_AB_META),
+                )
+                    .from(DSL.table(DSL.name(namespace, tableName))),
+            )
             .getSQL(ParamType.INLINED)
-    }
 
     override fun clearLoadedAt(streamId: StreamId): Sql {
         return of(
@@ -413,7 +408,7 @@ constructor(
             .columns(buildFinalTableFields(columns, metaFields))
     }
 
-    private fun insertAndDeleteTransaction(
+    protected open fun insertAndDeleteTransaction(
         streamConfig: StreamConfig,
         finalSuffix: String?,
         minRawTimestamp: Optional<Instant>,
@@ -517,7 +512,7 @@ constructor(
         return createSchemaSql.sql
     }
 
-    protected fun createTableSql(
+    protected open fun createTableSql(
         namespace: String,
         tableName: String,
         columns: LinkedHashMap<ColumnId, AirbyteType>
@@ -541,7 +536,7 @@ constructor(
         return commitTransaction() + ";"
     }
 
-    private fun deleteFromFinalTable(
+    protected fun deleteFromFinalTable(
         schemaName: String,
         tableName: String,
         primaryKeys: List<ColumnId>,
@@ -567,14 +562,14 @@ constructor(
             .getSQL(ParamType.INLINED)
     }
 
-    private fun deleteFromFinalTableCdcDeletes(schema: String, tableName: String): String {
+    protected fun deleteFromFinalTableCdcDeletes(schema: String, tableName: String): String {
         val dsl = dslContext
         return dsl.deleteFrom(DSL.table(DSL.quotedName(schema, tableName)))
             .where(DSL.field(DSL.quotedName(cdcDeletedAtColumn.name)).isNotNull())
             .getSQL(ParamType.INLINED)
     }
 
-    private fun checkpointRawTable(
+    protected fun checkpointRawTable(
         schemaName: String,
         tableName: String,
         minRawTimestamp: Optional<Instant>
@@ -641,5 +636,6 @@ constructor(
         const val ROW_NUMBER_COLUMN_NAME: String = "row_number"
         private const val TYPING_CTE_ALIAS = "intermediate_data"
         private const val NUMBERED_ROWS_CTE_ALIAS = "numbered_rows"
+        private val LOGGER = LoggerFactory.getLogger(JdbcSqlGenerator::class.java)
     }
 }

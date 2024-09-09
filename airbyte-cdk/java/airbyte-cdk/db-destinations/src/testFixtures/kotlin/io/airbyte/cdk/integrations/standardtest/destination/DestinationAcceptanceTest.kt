@@ -1111,7 +1111,8 @@ abstract class DestinationAcceptanceTest(
                     it.record.data["id"].asText() +
                         it.record.data["currency"].asText() +
                         it.record.data["date"].asText() +
-                        it.record.data["NZD"].asText()
+                        it.record.data["NZD"].asText() +
+                        it.record.data["HKD"].asText() //added this because the key is not unique with only id + currency + date + NZD
                 }
                 .mapValues { it.value.maxBy { it.record.emittedAt } }
         // Filter expectedMessagesAfterSecondSync and keep latest messages only (keep same message
@@ -1124,7 +1125,8 @@ abstract class DestinationAcceptanceTest(
                         it.record.data["id"].asText() +
                             it.record.data["currency"].asText() +
                             it.record.data["date"].asText() +
-                            it.record.data["NZD"].asText()
+                            it.record.data["NZD"].asText() +
+                            it.record.data["HKD"].asText() //added this because the key is not unique with only id + currency + date + NZD
                     (it.record.emittedAt == latestMessagesOnly[key]!!.record.emittedAt)
                 }
 

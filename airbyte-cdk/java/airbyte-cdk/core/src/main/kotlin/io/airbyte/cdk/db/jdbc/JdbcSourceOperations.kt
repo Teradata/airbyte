@@ -29,7 +29,13 @@ open class JdbcSourceOperations :
     override fun copyToJsonField(resultSet: ResultSet, colIndex: Int, json: ObjectNode) {
         val columnTypeInt = resultSet.metaData.getColumnType(colIndex)
         val columnName = resultSet.metaData.getColumnName(colIndex)
-        val columnType = safeGetJdbcType(columnTypeInt)
+        var columnType = safeGetJdbcType(columnTypeInt)
+
+        if(resultSet.metaData.getColumnTypeName(colIndex).equals("TIMESTAMP WITH TIME ZONE")) {
+            columnType = JDBCType.TIMESTAMP_WITH_TIMEZONE;
+        } else if (resultSet.metaData.getColumnTypeName(colIndex).equals("TIME WITH TIME ZONE")) {
+            columnType = JDBCType.TIME_WITH_TIMEZONE
+        }
 
         when (columnType) {
             JDBCType.BIT,
@@ -49,8 +55,7 @@ open class JdbcSourceOperations :
             JDBCType.DATE -> putDate(json, columnName, resultSet, colIndex)
             JDBCType.TIME -> putTime(json, columnName, resultSet, colIndex)
             JDBCType.TIMESTAMP -> putTimestamp(json, columnName, resultSet, colIndex)
-            JDBCType.TIMESTAMP_WITH_TIMEZONE ->
-                putTimestampWithTimezone(json, columnName, resultSet, colIndex)
+            JDBCType.TIME_WITH_TIMEZONE -> putTimeWithTimezone(json, columnName, resultSet, colIndex)
             JDBCType.BLOB,
             JDBCType.BINARY,
             JDBCType.VARBINARY,
