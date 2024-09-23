@@ -17,7 +17,7 @@ class JSONStruct
  *
  * @param sqlTypeName The SQL type name.
  * @param attributes The attributes of the JSONStruct.
- */(private val m_sqlTypeName: String, private val m_attributes: Array<Any>) : Struct {
+ */(private val m_sqlTypeName: String, private val m_attributes: Array<String?>) : Struct {
     /**
      * Retrieves the attributes of this JSONStruct.
      *
@@ -25,7 +25,7 @@ class JSONStruct
      * @throws SQLException if a database access error occurs.
      */
     @Throws(SQLException::class)
-    override fun getAttributes(): Array<Any> {
+    override fun getAttributes(): Array<String?> {
         return m_attributes
     }
 

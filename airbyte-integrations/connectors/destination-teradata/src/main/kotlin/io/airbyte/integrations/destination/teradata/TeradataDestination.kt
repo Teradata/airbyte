@@ -5,12 +5,19 @@ package io.airbyte.integrations.destination.teradata
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.google.common.collect.ImmutableMap
+import io.airbyte.cdk.db.jdbc.JdbcDatabase
 import io.airbyte.cdk.db.jdbc.JdbcUtils
 import io.airbyte.cdk.integrations.base.Destination
 import io.airbyte.cdk.integrations.base.IntegrationRunner
 import io.airbyte.cdk.integrations.destination.StandardNameTransformer
 import io.airbyte.cdk.integrations.destination.jdbc.AbstractJdbcDestination
+import io.airbyte.cdk.integrations.destination.jdbc.typing_deduping.JdbcDestinationHandler
+import io.airbyte.cdk.integrations.destination.jdbc.typing_deduping.JdbcSqlGenerator
+import io.airbyte.integrations.base.destination.typing_deduping.migrators.MinimumDestinationState
 import io.airbyte.commons.json.Jsons
+import io.airbyte.integrations.base.destination.typing_deduping.DestinationHandler
+import io.airbyte.integrations.base.destination.typing_deduping.SqlGenerator
+import io.airbyte.integrations.base.destination.typing_deduping.migrators.Migration
 import java.io.IOException
 import java.io.PrintWriter
 import java.nio.charset.StandardCharsets
@@ -19,7 +26,11 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 class TeradataDestination :
-    AbstractJdbcDestination(DRIVER_CLASS, StandardNameTransformer(), TeradataSqlOperations()),
+    AbstractJdbcDestination<MinimumDestinationState>(
+        DRIVER_CLASS,
+        StandardNameTransformer(),
+        TeradataSqlOperations()
+    ),
     Destination {
     override fun getDefaultConnectionProperties(config: JsonNode): Map<String, String> {
         val additionalParameters: MutableMap<String, String> = HashMap()
@@ -37,6 +48,30 @@ class TeradataDestination :
             ENCRYPTDATA_ON
         return additionalParameters
     }
+
+    override fun getDestinationHandler(
+        databaseName: String,
+        database: JdbcDatabase,
+        rawTableSchema: String
+    ): JdbcDestinationHandler<MinimumDestinationState> {
+        TODO("Not yet implemented")
+    }
+
+    override fun getSqlGenerator(config: JsonNode): JdbcSqlGenerator {
+        TODO("Not yet implemented")
+    }
+
+    override fun getMigrations(
+        database: JdbcDatabase,
+        databaseName: String,
+        sqlGenerator: SqlGenerator,
+        destinationHandler: DestinationHandler<MinimumDestinationState>
+    ): List<Migration<MinimumDestinationState>> {
+        TODO("Not yet implemented")
+    }
+
+    override val isV2Destination: Boolean
+        get() = true
 
     private fun obtainConnectionOptions(encryption: JsonNode): Map<String, String> {
         val additionalParameters: MutableMap<String, String> = HashMap()
@@ -94,6 +129,8 @@ class TeradataDestination :
         }
         return Jsons.jsonNode(configBuilder.build())
     }
+
+
 
     companion object {
         private val LOGGER: Logger = LoggerFactory.getLogger(TeradataDestination::class.java)
