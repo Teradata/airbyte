@@ -211,7 +211,7 @@ abstract class JdbcDestinationHandler<DestinationState>(
     }
 
     @Throws(SQLException::class)
-    protected fun getAllDestinationStates(): Map<AirbyteStreamNameNamespacePair, DestinationState> {
+    open fun getAllDestinationStates(): Map<AirbyteStreamNameNamespacePair, DestinationState> {
         try {
             // Guarantee the table exists.
             jdbcDatabase.execute(
