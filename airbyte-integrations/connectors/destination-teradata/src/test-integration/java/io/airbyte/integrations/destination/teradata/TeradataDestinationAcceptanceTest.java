@@ -81,6 +81,7 @@ public class TeradataDestinationAcceptanceTest extends JdbcDestinationAcceptance
           configJson.get("env_region").asText(),
           configJson.get("env_password").asText());
       response = teradataHttpClient.createEnvironment(request, token).get();
+      LOGGER.info("Environemnt " + configJson.get("env_name").asText() + " is created successfully ");
     } else if (response.state() == EnvironmentResponse.State.STOPPED) {
       var request = new EnvironmentRequest(name, new OperationRequest("start"));
       teradataHttpClient.startEnvironment(request, token);
@@ -95,8 +96,9 @@ public class TeradataDestinationAcceptanceTest extends JdbcDestinationAcceptance
   void cleanupEnvironment() throws ExecutionException, InterruptedException {
     try {
       TeradataHttpClient teradataHttpClient = new TeradataHttpClient(configJson.get("env_url").asText());
-      var request = new EnvironmentRequest(configJson.get("env_name").asText(), new OperationRequest("stop"));
-      teradataHttpClient.stopEnvironment(request, configJson.get("env_token").asText());
+      var request = new DeleteEnvironmentRequest(configJson.get("env_name").asText());
+      teradataHttpClient.deleteEnvironment(request, configJson.get("env_token").asText());
+      LOGGER.info("Environemnt " + configJson.get("env_name").asText() + " is deleted successfully ");
     } catch (BaseException be) {
       LOGGER.error("Environemnt " + configJson.get("env_name").asText() + " is not available. " + be.getMessage());
     }
