@@ -12,7 +12,6 @@ from airbyte_cdk.sources.file_based.file_based_stream_reader import AbstractFile
 from airbyte_cdk.sources.file_based.file_types.file_type_parser import FileTypeParser
 from airbyte_cdk.sources.file_based.remote_file import RemoteFile
 from airbyte_cdk.sources.file_based.schema_helpers import PYTHON_TYPE_MAPPING, SchemaType, merge_schemas
-from orjson import orjson
 
 
 class JsonlParser(FileTypeParser):
@@ -101,7 +100,7 @@ class JsonlParser(FileTypeParser):
                 read_bytes += len(line)
                 accumulator += line  # type: ignore [operator]  # In reality, it's either bytes or string and we add the same type
                 try:
-                    record = orjson.loads(accumulator)
+                    record = json.loads(accumulator)
                     if had_json_parsing_error and not has_warned_for_multiline_json_object:
                         logger.warning(f"File at {file.uri} is using multiline JSON. Performance could be greatly reduced")
                         has_warned_for_multiline_json_object = True
@@ -109,7 +108,7 @@ class JsonlParser(FileTypeParser):
                     yield record
                     yielded_at_least_once = True
                     accumulator = self._instantiate_accumulator(line)
-                except orjson.JSONDecodeError:
+                except json.JSONDecodeError:
                     had_json_parsing_error = True
 
                 if read_limit and yielded_at_least_once and read_bytes >= self.MAX_BYTES_PER_FILE_FOR_SCHEMA_INFERENCE:

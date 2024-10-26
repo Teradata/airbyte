@@ -2,9 +2,8 @@
 # Copyright (c) 2023 Airbyte, Inc., all rights reserved.
 #
 
-import logging
 from abc import abstractmethod
-from typing import Any, Mapping, Tuple
+from typing import Tuple
 
 from airbyte_cdk.sources.abstract_source import AbstractSource
 from airbyte_cdk.sources.declarative.checks.connection_checker import ConnectionChecker
@@ -20,7 +19,7 @@ class DeclarativeSource(AbstractSource):
     def connection_checker(self) -> ConnectionChecker:
         """Returns the ConnectionChecker to use for the `check` operation"""
 
-    def check_connection(self, logger: logging.Logger, config: Mapping[str, Any]) -> Tuple[bool, Any]:
+    def check_connection(self, logger, config) -> Tuple[bool, any]:
         """
         :param logger: The source logger
         :param config: The user-provided configuration as specified by the source's spec.

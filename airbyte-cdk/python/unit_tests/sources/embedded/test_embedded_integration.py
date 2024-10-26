@@ -6,7 +6,9 @@ import unittest
 from typing import Any, Mapping, Optional
 from unittest.mock import MagicMock
 
-from airbyte_cdk.models import (
+from airbyte_cdk.sources.embedded.base_integration import BaseEmbeddedIntegration
+from airbyte_cdk.utils import AirbyteTracedException
+from airbyte_protocol.models import (
     AirbyteCatalog,
     AirbyteLogMessage,
     AirbyteMessage,
@@ -21,8 +23,6 @@ from airbyte_cdk.models import (
     SyncMode,
     Type,
 )
-from airbyte_cdk.sources.embedded.base_integration import BaseEmbeddedIntegration
-from airbyte_cdk.utils import AirbyteTracedException
 
 
 class TestIntegration(BaseEmbeddedIntegration):

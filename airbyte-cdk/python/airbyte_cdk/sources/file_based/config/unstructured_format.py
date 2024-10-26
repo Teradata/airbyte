@@ -5,7 +5,7 @@
 from typing import List, Literal, Optional, Union
 
 from airbyte_cdk.utils.oneof_option_config import OneOfOptionConfig
-from pydantic.v1 import BaseModel, Field
+from pydantic import BaseModel, Field
 
 
 class LocalProcessingConfigModel(BaseModel):
@@ -60,7 +60,7 @@ class APIProcessingConfigModel(BaseModel):
 
 class UnstructuredFormat(BaseModel):
     class Config(OneOfOptionConfig):
-        title = "Unstructured Document Format"
+        title = "Document File Type Format (Experimental)"
         description = "Extract text from document formats (.pdf, .docx, .md, .pptx) and emit as one record per file."
         discriminator = "filetype"
 

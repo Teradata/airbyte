@@ -3,9 +3,9 @@
 #
 
 
-from airbyte_cdk.models import SyncMode
 from airbyte_cdk.sources.file_based.exceptions import ConfigValidationError, FileBasedSourceError
 from airbyte_cdk.test.catalog_builder import CatalogBuilder
+from airbyte_protocol.models import SyncMode
 from unit_tests.sources.file_based.scenarios.file_based_source_builder import FileBasedSourceBuilder
 from unit_tests.sources.file_based.scenarios.scenario_builder import TestScenarioBuilder
 
@@ -53,7 +53,6 @@ _base_user_input_schema_scenario = (
                     "name": "stream1",
                     "source_defined_cursor": True,
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 }
             ]
         }
@@ -162,7 +161,6 @@ single_stream_user_input_schema_scenario_emit_nonconforming_records = (
                     "name": "stream1",
                     "source_defined_cursor": True,
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 }
             ]
         }
@@ -205,7 +203,6 @@ single_stream_user_input_schema_scenario_skip_nonconforming_records = (
                     "name": "stream1",
                     "source_defined_cursor": True,
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 }
             ]
         }
@@ -287,7 +284,6 @@ _base_multi_stream_user_input_schema_scenario = (
                     "name": "stream1",
                     "source_defined_cursor": True,
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 },
                 {
                     "default_cursor_field": ["_ab_source_file_last_modified"],
@@ -310,7 +306,6 @@ _base_multi_stream_user_input_schema_scenario = (
                     "name": "stream2",
                     "source_defined_cursor": True,
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 },
                 {
                     "default_cursor_field": ["_ab_source_file_last_modified"],
@@ -327,7 +322,6 @@ _base_multi_stream_user_input_schema_scenario = (
                     "name": "stream3",
                     "source_defined_cursor": True,
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 },
             ]
         }
@@ -508,7 +502,6 @@ multi_stream_user_input_schema_scenario_emit_nonconforming_records = (
                     "name": "stream1",
                     "source_defined_cursor": True,
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 },
                 {
                     "default_cursor_field": ["_ab_source_file_last_modified"],
@@ -525,7 +518,6 @@ multi_stream_user_input_schema_scenario_emit_nonconforming_records = (
                     "name": "stream2",
                     "source_defined_cursor": True,
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 },
                 {
                     "default_cursor_field": ["_ab_source_file_last_modified"],
@@ -542,7 +534,6 @@ multi_stream_user_input_schema_scenario_emit_nonconforming_records = (
                     "name": "stream3",
                     "source_defined_cursor": True,
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 },
             ]
         }
@@ -662,7 +653,6 @@ multi_stream_user_input_schema_scenario_skip_nonconforming_records = (
                     "name": "stream1",
                     "source_defined_cursor": True,
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 },
                 {
                     "default_cursor_field": ["_ab_source_file_last_modified"],
@@ -679,7 +669,6 @@ multi_stream_user_input_schema_scenario_skip_nonconforming_records = (
                     "name": "stream2",
                     "source_defined_cursor": True,
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 },
                 {
                     "default_cursor_field": ["_ab_source_file_last_modified"],
@@ -696,7 +685,6 @@ multi_stream_user_input_schema_scenario_skip_nonconforming_records = (
                     "name": "stream3",
                     "source_defined_cursor": True,
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 },
             ]
         }

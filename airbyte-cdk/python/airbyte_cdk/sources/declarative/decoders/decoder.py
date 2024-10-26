@@ -4,7 +4,7 @@
 
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Any, Generator, MutableMapping
+from typing import Any, List, Mapping, Union
 
 import requests
 
@@ -16,15 +16,10 @@ class Decoder:
     """
 
     @abstractmethod
-    def is_stream_response(self) -> bool:
-        """
-        Set to True if you'd like to use stream=True option in http requester
-        """
-
-    @abstractmethod
-    def decode(self, response: requests.Response) -> Generator[MutableMapping[str, Any], None, None]:
+    def decode(self, response: requests.Response) -> Union[Mapping[str, Any], List]:
         """
         Decodes a requests.Response into a Mapping[str, Any] or an array
         :param response: the response to decode
-        :return: Generator of Mapping describing the response
+        :return: Mapping or array describing the response
         """
+        pass

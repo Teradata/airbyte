@@ -11,7 +11,6 @@ def helper_with_exceptions(exception_type):
     raise exception_type
 
 
-@pytest.mark.usefixtures("mock_sleep")
 @pytest.mark.parametrize(
     "max_tries, max_time, factor, exception_to_raise",
     [

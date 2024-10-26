@@ -84,9 +84,8 @@ class SourceTestFixture(AbstractSource):
 class HttpTestStream(HttpStream, ABC):
     url_base = "https://airbyte.com/api/v1/"
 
-    @property
-    def cursor_field(self) -> Union[str, List[str]]:
-        return ["updated_at"]
+    def supports_incremental(self):
+        return True
 
     @property
     def availability_strategy(self):

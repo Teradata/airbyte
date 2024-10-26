@@ -1,10 +1,9 @@
 #
 # Copyright (c) 2023 Airbyte, Inc., all rights reserved.
 #
-from unittest.mock import patch
 
 import pytest
-from airbyte_cdk.sources.declarative.schema.json_file_schema_loader import JsonFileSchemaLoader, _default_file_path
+from airbyte_cdk.sources.declarative.schema import JsonFileSchemaLoader
 
 
 @pytest.mark.parametrize(
@@ -25,13 +24,3 @@ def test_extract_resource_and_schema_path(test_name, input_path, expected_resour
 
     assert actual_resource == expected_resource
     assert actual_path == expected_path
-
-
-@patch("airbyte_cdk.sources.declarative.schema.json_file_schema_loader.sys")
-def test_exclude_cdk_packages(mocked_sys):
-    keys = ["airbyte_cdk.sources.concurrent_source.concurrent_source_adapter", "source_gitlab.utils"]
-    mocked_sys.modules = {key: "" for key in keys}
-
-    default_file_path = _default_file_path()
-
-    assert "source_gitlab" in default_file_path

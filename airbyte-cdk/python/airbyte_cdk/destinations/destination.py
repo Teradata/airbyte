@@ -11,10 +11,10 @@ from typing import Any, Iterable, List, Mapping
 
 from airbyte_cdk.connector import Connector
 from airbyte_cdk.exception_handler import init_uncaught_exception_handler
-from airbyte_cdk.models import AirbyteMessage, AirbyteMessageSerializer, ConfiguredAirbyteCatalog, ConfiguredAirbyteCatalogSerializer, Type
+from airbyte_cdk.models import AirbyteMessage, ConfiguredAirbyteCatalog, Type
 from airbyte_cdk.sources.utils.schema_helpers import check_config_against_spec_or_exit
 from airbyte_cdk.utils.traced_exception import AirbyteTracedException
-from orjson import orjson
+from pydantic import ValidationError
 
 logger = logging.getLogger("airbyte")
 
@@ -36,14 +36,14 @@ class Destination(Connector, ABC):
         """Reads from stdin, converting to Airbyte messages"""
         for line in input_stream:
             try:
-                yield AirbyteMessageSerializer.load(orjson.loads(line))
-            except orjson.JSONDecodeError:
+                yield AirbyteMessage.parse_raw(line)
+            except ValidationError:
                 logger.info(f"ignoring input which can't be deserialized as Airbyte Message: {line}")
 
     def _run_write(
         self, config: Mapping[str, Any], configured_catalog_path: str, input_stream: io.TextIOWrapper
     ) -> Iterable[AirbyteMessage]:
-        catalog = ConfiguredAirbyteCatalogSerializer.load(orjson.loads(open(configured_catalog_path).read()))
+        catalog = ConfiguredAirbyteCatalog.parse_file(configured_catalog_path)
         input_messages = self._parse_input_stream(input_stream)
         logger.info("Begin writing to the destination...")
         yield from self.write(config=config, configured_catalog=catalog, input_messages=input_messages)
@@ -101,7 +101,7 @@ class Destination(Connector, ABC):
             except AirbyteTracedException as traced_exc:
                 connection_status = traced_exc.as_connection_status_message()
                 if connection_status and cmd == "check":
-                    yield connection_status
+                    yield connection_status.json(exclude_unset=True)
                     return
                 raise traced_exc
 
@@ -112,9 +112,9 @@ class Destination(Connector, ABC):
             wrapped_stdin = io.TextIOWrapper(sys.stdin.buffer, encoding="utf-8")
             yield from self._run_write(config=config, configured_catalog_path=parsed_args.catalog, input_stream=wrapped_stdin)
 
-    def run(self, args: List[str]) -> None:
+    def run(self, args: List[str]):
         init_uncaught_exception_handler(logger)
         parsed_args = self.parse_args(args)
         output_messages = self.run_cmd(parsed_args)
         for message in output_messages:
-            print(orjson.dumps(AirbyteMessageSerializer.dump(message)).decode())
+            print(message.json(exclude_unset=True))

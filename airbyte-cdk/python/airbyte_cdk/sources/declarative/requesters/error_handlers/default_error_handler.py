@@ -5,16 +5,17 @@
 from dataclasses import InitVar, dataclass, field
 from typing import Any, List, Mapping, MutableMapping, Optional, Union
 
+import airbyte_cdk.sources.declarative.requesters.error_handlers.response_status as response_status
 import requests
-from airbyte_cdk.sources.declarative.requesters.error_handlers.default_http_response_filter import DefaultHttpResponseFilter
-from airbyte_cdk.sources.declarative.requesters.error_handlers.http_response_filter import HttpResponseFilter
-from airbyte_cdk.sources.streams.http.error_handlers import BackoffStrategy, ErrorHandler
-from airbyte_cdk.sources.streams.http.error_handlers.response_models import (
-    SUCCESS_RESOLUTION,
-    ErrorResolution,
-    create_fallback_error_resolution,
+from airbyte_cdk.sources.declarative.requesters.error_handlers.backoff_strategies.exponential_backoff_strategy import (
+    ExponentialBackoffStrategy,
 )
-from airbyte_cdk.sources.types import Config
+from airbyte_cdk.sources.declarative.requesters.error_handlers.backoff_strategy import BackoffStrategy
+from airbyte_cdk.sources.declarative.requesters.error_handlers.error_handler import ErrorHandler
+from airbyte_cdk.sources.declarative.requesters.error_handlers.http_response_filter import HttpResponseFilter
+from airbyte_cdk.sources.declarative.requesters.error_handlers.response_action import ResponseAction
+from airbyte_cdk.sources.declarative.requesters.error_handlers.response_status import ResponseStatus
+from airbyte_cdk.sources.declarative.types import Config
 
 
 @dataclass
@@ -22,12 +23,12 @@ class DefaultErrorHandler(ErrorHandler):
     """
     Default error handler.
 
-    By default, the handler will only use the `DEFAULT_ERROR_MAPPING` that is part of the Python CDK's `HttpStatusErrorHandler`.
+    By default, the handler will only retry server errors (HTTP 5XX) and too many requests (HTTP 429) with exponential backoff.
 
-    If the response is successful, then a SUCCESS_RESOLUTION is returned.
+    If the response is successful, then return SUCCESS
     Otherwise, iterate over the response_filters.
     If any of the filter match the response, then return the appropriate status.
-    When `DefaultErrorHandler.backoff_time()` is invoked, iterate sequentially over the backoff_strategies and return the first non-None backoff time, else return None.
+    If the match is RETRY, then iterate sequentially over the backoff_strategies and return the first non-None backoff time.
 
     Sample configs:
 
@@ -88,6 +89,8 @@ class DefaultErrorHandler(ErrorHandler):
         to wait before retrying
     """
 
+    DEFAULT_BACKOFF_STRATEGY = ExponentialBackoffStrategy
+
     parameters: InitVar[Mapping[str, Any]]
     config: Config
     response_filters: Optional[List[HttpResponseFilter]] = None
@@ -98,39 +101,57 @@ class DefaultErrorHandler(ErrorHandler):
     backoff_strategies: Optional[List[BackoffStrategy]] = None
 
     def __post_init__(self, parameters: Mapping[str, Any]) -> None:
+        self.response_filters = self.response_filters or []
 
         if not self.response_filters:
-            self.response_filters = [HttpResponseFilter(config=self.config, parameters={})]
+            self.response_filters.append(
+                HttpResponseFilter(
+                    ResponseAction.RETRY, http_codes=HttpResponseFilter.DEFAULT_RETRIABLE_ERRORS, config=self.config, parameters={}
+                )
+            )
+            self.response_filters.append(HttpResponseFilter(ResponseAction.IGNORE, config={}, parameters={}))
+
+        if not self.backoff_strategies:
+            self.backoff_strategies = [DefaultErrorHandler.DEFAULT_BACKOFF_STRATEGY(parameters=parameters, config=self.config)]
 
         self._last_request_to_attempt_count: MutableMapping[requests.PreparedRequest, int] = {}
 
-    def interpret_response(self, response_or_exception: Optional[Union[requests.Response, Exception]]) -> ErrorResolution:
+    @property  # type: ignore # overwrite the property to handle the case where max_retries is not provided in the constructor
+    def max_retries(self) -> Union[int, None]:
+        return self._max_retries
 
+    @max_retries.setter
+    def max_retries(self, value: int) -> None:
+        # Covers the case where max_retries is not provided in the constructor, which causes the property object
+        # to be set which we need to avoid doing
+        if not isinstance(value, property):
+            self._max_retries = value
+
+    def interpret_response(self, response: requests.Response) -> ResponseStatus:
+        request = response.request
+
+        if request not in self._last_request_to_attempt_count:
+            self._last_request_to_attempt_count = {request: 1}
+        else:
+            self._last_request_to_attempt_count[request] += 1
         if self.response_filters:
             for response_filter in self.response_filters:
-                matched_error_resolution = response_filter.matches(response_or_exception=response_or_exception)
-                if matched_error_resolution:
-                    return matched_error_resolution
-        if isinstance(response_or_exception, requests.Response):
-            if response_or_exception.ok:
-                return SUCCESS_RESOLUTION
+                matched_status = response_filter.matches(
+                    response=response, backoff_time=self._backoff_time(response, self._last_request_to_attempt_count[request])
+                )
+                if matched_status is not None:
+                    return matched_status
 
-        default_reponse_filter = DefaultHttpResponseFilter(parameters={}, config=self.config)
-        default_response_filter_resolution = default_reponse_filter.matches(response_or_exception)
+        if response.ok:
+            return response_status.SUCCESS
+        # Fail if the response matches no filters
+        return response_status.FAIL
 
-        return (
-            default_response_filter_resolution
-            if default_response_filter_resolution
-            else create_fallback_error_resolution(response_or_exception)
-        )
-
-    def backoff_time(
-        self, response_or_exception: Optional[Union[requests.Response, requests.RequestException]], attempt_count: int = 0
-    ) -> Optional[float]:
+    def _backoff_time(self, response: requests.Response, attempt_count: int) -> Optional[float]:
         backoff = None
         if self.backoff_strategies:
-            for backoff_strategy in self.backoff_strategies:
-                backoff = backoff_strategy.backoff_time(response_or_exception=response_or_exception, attempt_count=attempt_count)  # type: ignore # attempt_count maintained for compatibility with low code CDK
+            for backoff_strategies in self.backoff_strategies:
+                backoff = backoff_strategies.backoff(response, attempt_count)
                 if backoff:
                     return backoff
         return backoff

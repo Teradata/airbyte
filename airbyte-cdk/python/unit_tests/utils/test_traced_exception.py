@@ -2,21 +2,20 @@
 # Copyright (c) 2023 Airbyte, Inc., all rights reserved.
 #
 
+import json
 
 import pytest
-from airbyte_cdk.models import (
+from airbyte_cdk.models.airbyte_protocol import (
     AirbyteErrorTraceMessage,
     AirbyteMessage,
-    AirbyteMessageSerializer,
     AirbyteTraceMessage,
     FailureType,
     Status,
-    StreamDescriptor,
     TraceType,
 )
-from airbyte_cdk.models import Type as MessageType
+from airbyte_cdk.models.airbyte_protocol import Type as MessageType
 from airbyte_cdk.utils.traced_exception import AirbyteTracedException
-from orjson import orjson
+from airbyte_protocol.models import StreamDescriptor
 
 _AN_EXCEPTION = ValueError("An exception")
 _A_STREAM_DESCRIPTOR = StreamDescriptor(name="a_stream")
@@ -91,12 +90,12 @@ def test_emit_message(capsys):
     )
 
     expected_message = AirbyteMessage(
-        type=MessageType.TRACE,
+        type="TRACE",
         trace=AirbyteTraceMessage(
-            type=TraceType.ERROR,
+            type="ERROR",
             emitted_at=0.0,
             error=AirbyteErrorTraceMessage(
-                failure_type=FailureType.system_error,
+                failure_type="system_error",
                 message="user-friendly message",
                 internal_message="internal message",
                 stack_trace="RuntimeError: oh no\n",
@@ -107,8 +106,9 @@ def test_emit_message(capsys):
     traced_exc.emit_message()
 
     stdout = capsys.readouterr().out
-    printed_message = AirbyteMessageSerializer.load(orjson.loads(stdout))
+    printed_message = AirbyteMessage.parse_obj(json.loads(stdout))
     printed_message.trace.emitted_at = 0.0
+
     assert printed_message == expected_message
 
 

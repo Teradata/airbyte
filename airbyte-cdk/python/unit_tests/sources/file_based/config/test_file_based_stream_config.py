@@ -6,7 +6,7 @@ from typing import Any, Mapping, Type
 
 import pytest as pytest
 from airbyte_cdk.sources.file_based.config.file_based_stream_config import CsvFormat, FileBasedStreamConfig
-from pydantic.v1.error_wrappers import ValidationError
+from pydantic import ValidationError
 
 
 @pytest.mark.parametrize(

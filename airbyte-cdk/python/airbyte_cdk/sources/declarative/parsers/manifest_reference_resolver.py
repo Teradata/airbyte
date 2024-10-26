@@ -101,9 +101,9 @@ class ManifestReferenceResolver:
         :param manifest: incoming manifest that could have references to previously defined components
         :return:
         """
-        return self._evaluate_node(manifest, manifest, set())  # type: ignore[no-any-return]
+        return self._evaluate_node(manifest, manifest, set())
 
-    def _evaluate_node(self, node: Any, manifest: Mapping[str, Any], visited: Set[Any]) -> Any:
+    def _evaluate_node(self, node: Any, manifest: Mapping[str, Any], visited: Set) -> Any:
         if isinstance(node, dict):
             evaluated_dict = {k: self._evaluate_node(v, manifest, visited) for k, v in node.items() if not self._is_ref_key(k)}
             if REF_TAG in node:
@@ -129,11 +129,10 @@ class ManifestReferenceResolver:
             return node
 
     def _lookup_ref_value(self, ref: str, manifest: Mapping[str, Any]) -> Any:
-        ref_match = re.match(r"#/(.*)", ref)
-        if not ref_match:
-            raise ValueError(f"Invalid reference format {ref}")
+        path = re.match(r"#/(.*)", ref).groups()[0]
+        if not path:
+            raise UndefinedReferenceException(path, ref)
         try:
-            path = ref_match.groups()[0]
             return self._read_ref_value(path, manifest)
         except (AttributeError, KeyError, IndexError):
             raise UndefinedReferenceException(path, ref)
@@ -143,8 +142,8 @@ class ManifestReferenceResolver:
         return isinstance(node, str) and node.startswith("#/")
 
     @staticmethod
-    def _is_ref_key(key: str) -> bool:
-        return bool(key == REF_TAG)
+    def _is_ref_key(key) -> bool:
+        return key == REF_TAG
 
     @staticmethod
     def _read_ref_value(ref: str, manifest_node: Mapping[str, Any]) -> Any:
@@ -174,7 +173,7 @@ class ManifestReferenceResolver:
                 return manifest_node[ref]
             except (KeyError, TypeError):
                 head, ref = _parse_path(ref)
-                manifest_node = manifest_node[head]  # type: ignore # Couldn't figure out how to fix this since manifest_node can get reassigned into other types like lists
+                manifest_node = manifest_node[head]
         return manifest_node
 
 
@@ -196,11 +195,8 @@ def _parse_path(ref: str) -> Tuple[Union[str, int], str]:
     "8foo", "bar"
     """
     match = re.match(r"([^/]*)/?(.*)", ref)
-    if match:
-        first, rest = match.groups()
-        try:
-            return int(first), rest
-        except ValueError:
-            return first, rest
-    else:
-        raise ValueError(f"Invalid path {ref} specified")
+    first, rest = match.groups()
+    try:
+        return int(first), rest
+    except ValueError:
+        return first, rest

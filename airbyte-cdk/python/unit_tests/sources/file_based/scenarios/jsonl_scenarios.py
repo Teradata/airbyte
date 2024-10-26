@@ -64,7 +64,6 @@ single_jsonl_scenario = (
                     "name": "stream1",
                     "source_defined_cursor": True,
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 }
             ]
         }
@@ -159,7 +158,6 @@ multi_jsonl_with_different_keys_scenario = (
                     "name": "stream1",
                     "source_defined_cursor": True,
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 }
             ]
         }
@@ -271,7 +269,6 @@ multi_jsonl_stream_n_file_exceeds_limit_for_inference = (
                     "name": "stream1",
                     "source_defined_cursor": True,
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 }
             ]
         }
@@ -383,7 +380,6 @@ multi_jsonl_stream_n_bytes_exceeds_limit_for_inference = (
                     "name": "stream1",
                     "source_defined_cursor": True,
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 }
             ]
         }
@@ -484,7 +480,6 @@ invalid_jsonl_scenario = (
                     "name": "stream1",
                     "source_defined_cursor": True,
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 }
             ]
         }
@@ -570,7 +565,6 @@ jsonl_multi_stream_scenario = (
                     },
                     "name": "stream1",
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                     "source_defined_cursor": True,
                     "default_cursor_field": ["_ab_source_file_last_modified"],
                 },
@@ -591,7 +585,6 @@ jsonl_multi_stream_scenario = (
                     "source_defined_cursor": True,
                     "default_cursor_field": ["_ab_source_file_last_modified"],
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 },
             ]
         }
@@ -695,7 +688,6 @@ schemaless_jsonl_scenario = (
                     "name": "stream1",
                     "source_defined_cursor": True,
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 }
             ]
         }
@@ -801,7 +793,6 @@ schemaless_jsonl_multi_stream_scenario = (
                     },
                     "name": "stream1",
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                     "source_defined_cursor": True,
                     "default_cursor_field": ["_ab_source_file_last_modified"],
                 },
@@ -822,7 +813,6 @@ schemaless_jsonl_multi_stream_scenario = (
                     "source_defined_cursor": True,
                     "default_cursor_field": ["_ab_source_file_last_modified"],
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 },
             ]
         }
@@ -911,7 +901,6 @@ jsonl_user_input_schema_scenario = (
                     "name": "stream1",
                     "source_defined_cursor": True,
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 }
             ]
         }

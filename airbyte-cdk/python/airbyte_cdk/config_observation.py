@@ -7,25 +7,14 @@ from __future__ import (  # Used to evaluate type hints at runtime, a NameError:
 )
 
 import time
-from copy import copy
 from typing import Any, List, MutableMapping
 
-from airbyte_cdk.models import (
-    AirbyteControlConnectorConfigMessage,
-    AirbyteControlMessage,
-    AirbyteMessage,
-    AirbyteMessageSerializer,
-    OrchestratorType,
-    Type,
-)
-from orjson import orjson
+from airbyte_cdk.models import AirbyteControlConnectorConfigMessage, AirbyteControlMessage, AirbyteMessage, OrchestratorType, Type
 
 
-class ObservedDict(dict):  # type: ignore # disallow_any_generics is set to True, and dict is equivalent to dict[Any]
-    def __init__(
-        self, non_observed_mapping: MutableMapping[Any, Any], observer: ConfigObserver, update_on_unchanged_value: bool = True
-    ) -> None:
-        non_observed_mapping = copy(non_observed_mapping)
+class ObservedDict(dict):
+    def __init__(self, non_observed_mapping: MutableMapping, observer: ConfigObserver, update_on_unchanged_value=True) -> None:
+        non_observed_mapping = non_observed_mapping.copy()
         self.observer = observer
         self.update_on_unchanged_value = update_on_unchanged_value
         for item, value in non_observed_mapping.items():
@@ -40,7 +29,7 @@ class ObservedDict(dict):  # type: ignore # disallow_any_generics is set to True
                         value[i] = ObservedDict(sub_value, observer)
         super().__init__(non_observed_mapping)
 
-    def __setitem__(self, item: Any, value: Any) -> None:
+    def __setitem__(self, item: Any, value: Any):
         """Override dict.__setitem__ by:
         1. Observing the new value if it is a dict
         2. Call observer update if the new value is different from the previous one
@@ -69,7 +58,7 @@ class ConfigObserver:
         emit_configuration_as_airbyte_control_message(self.config)
 
 
-def observe_connector_config(non_observed_connector_config: MutableMapping[str, Any]) -> ObservedDict:
+def observe_connector_config(non_observed_connector_config: MutableMapping[str, Any]):
     if isinstance(non_observed_connector_config, ObservedDict):
         raise ValueError("This connector configuration is already observed")
     connector_config_observer = ConfigObserver()
@@ -78,16 +67,16 @@ def observe_connector_config(non_observed_connector_config: MutableMapping[str, 
     return observed_connector_config
 
 
-def emit_configuration_as_airbyte_control_message(config: MutableMapping[str, Any]) -> None:
+def emit_configuration_as_airbyte_control_message(config: MutableMapping):
     """
     WARNING: deprecated - emit_configuration_as_airbyte_control_message is being deprecated in favor of the MessageRepository mechanism.
     See the airbyte_cdk.sources.message package
     """
     airbyte_message = create_connector_config_control_message(config)
-    print(orjson.dumps(AirbyteMessageSerializer.dump(airbyte_message)).decode())
+    print(airbyte_message.json(exclude_unset=True))
 
 
-def create_connector_config_control_message(config: MutableMapping[str, Any]) -> AirbyteMessage:
+def create_connector_config_control_message(config):
     control_message = AirbyteControlMessage(
         type=OrchestratorType.CONNECTOR_CONFIG,
         emitted_at=time.time() * 1000,

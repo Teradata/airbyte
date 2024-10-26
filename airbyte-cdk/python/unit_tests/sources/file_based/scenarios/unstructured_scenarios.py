@@ -77,7 +77,6 @@ simple_markdown_scenario = (
                     "source_defined_cursor": True,
                     "source_defined_primary_key": [["document_key"]],
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 }
             ]
         }
@@ -90,6 +89,7 @@ simple_markdown_scenario = (
                     "content": "# Title 1\n\n## Title 2\n\n### Title 3\n\n#### Title 4\n\n##### Title 5\n\n###### Title 6\n\n",
                     "_ab_source_file_last_modified": "2023-06-05T03:54:07.000000Z",
                     "_ab_source_file_url": "a.md",
+                    "_ab_source_file_parse_error": None,
                 },
                 "stream": "stream1",
             },
@@ -99,6 +99,7 @@ simple_markdown_scenario = (
                     "content": "Just some text",
                     "_ab_source_file_last_modified": "2023-06-05T03:54:07.000000Z",
                     "_ab_source_file_url": "b.md",
+                    "_ab_source_file_parse_error": None,
                 },
                 "stream": "stream1",
             },
@@ -108,6 +109,7 @@ simple_markdown_scenario = (
                     "content": "Detected via mime type",
                     "_ab_source_file_last_modified": "2023-06-05T03:54:07.000000Z",
                     "_ab_source_file_url": "c",
+                    "_ab_source_file_parse_error": None,
                 },
                 "stream": "stream1",
             },
@@ -157,7 +159,6 @@ simple_txt_scenario = (
                     "source_defined_cursor": True,
                     "source_defined_primary_key": [["document_key"]],
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 }
             ]
         }
@@ -170,6 +171,7 @@ simple_txt_scenario = (
                     "content": "Just some raw text",
                     "_ab_source_file_last_modified": "2023-06-05T03:54:07.000000Z",
                     "_ab_source_file_url": "a.txt",
+                    "_ab_source_file_parse_error": None,
                 },
                 "stream": "stream1",
             },
@@ -179,6 +181,7 @@ simple_txt_scenario = (
                     "content": "Detected via mime type",
                     "_ab_source_file_last_modified": "2023-06-05T03:54:07.000000Z",
                     "_ab_source_file_url": "b",
+                    "_ab_source_file_parse_error": None,
                 },
                 "stream": "stream1",
             },
@@ -224,7 +227,6 @@ unstructured_invalid_file_type_discover_scenario_no_skip = (
                     "source_defined_cursor": True,
                     "source_defined_primary_key": [["document_key"]],
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 }
             ]
         }
@@ -275,7 +277,6 @@ unstructured_invalid_file_type_discover_scenario_skip = (
                     "source_defined_cursor": True,
                     "source_defined_primary_key": [["document_key"]],
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 }
             ]
         }
@@ -285,6 +286,7 @@ unstructured_invalid_file_type_discover_scenario_skip = (
             {
                 "data": {
                     "document_key": "a.csv",
+                    "content": None,
                     "_ab_source_file_last_modified": "2023-06-05T03:54:07.000000Z",
                     "_ab_source_file_url": "a.csv",
                     "_ab_source_file_parse_error": "Error parsing record. This could be due to a mismatch between the config's file type and the actual file type, or because the file or record is not parseable. Contact Support if you need assistance.\nfilename=a.csv message=File type FileType.CSV is not supported. Supported file types are FileType.MD, FileType.PDF, FileType.DOCX, FileType.PPTX, FileType.TXT",
@@ -339,7 +341,6 @@ unstructured_invalid_file_type_read_scenario = (
                     "source_defined_cursor": True,
                     "source_defined_primary_key": [["document_key"]],
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 }
             ]
         }
@@ -352,6 +353,7 @@ unstructured_invalid_file_type_read_scenario = (
                     "content": "A harmless markdown file",
                     "_ab_source_file_last_modified": "2023-06-05T03:54:07.000000Z",
                     "_ab_source_file_url": "a.md",
+                    "_ab_source_file_parse_error": None,
                 },
                 "stream": "stream1",
             },
@@ -419,7 +421,6 @@ simple_unstructured_scenario = (
                     "source_defined_cursor": True,
                     "source_defined_primary_key": [["document_key"]],
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 }
             ]
         }
@@ -432,6 +433,7 @@ simple_unstructured_scenario = (
                     "content": "# Hello World",
                     "_ab_source_file_last_modified": "2023-06-05T03:54:07.000000Z",
                     "_ab_source_file_url": "sample.pdf",
+                    "_ab_source_file_parse_error": None,
                 },
                 "stream": "stream1",
             },
@@ -441,6 +443,7 @@ simple_unstructured_scenario = (
                     "content": "# Content",
                     "_ab_source_file_last_modified": "2023-06-06T03:54:07.000000Z",
                     "_ab_source_file_url": "sample.docx",
+                    "_ab_source_file_parse_error": None,
                 },
                 "stream": "stream1",
             },
@@ -450,6 +453,7 @@ simple_unstructured_scenario = (
                     "content": "# Title",
                     "_ab_source_file_last_modified": "2023-06-07T03:54:07.000000Z",
                     "_ab_source_file_url": "sample.pptx",
+                    "_ab_source_file_parse_error": None,
                 },
                 "stream": "stream1",
             },
@@ -495,7 +499,6 @@ corrupted_file_scenario = (
                     "source_defined_cursor": True,
                     "source_defined_primary_key": [["document_key"]],
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 }
             ]
         }
@@ -505,6 +508,7 @@ corrupted_file_scenario = (
             {
                 "data": {
                     "document_key": "sample.pdf",
+                    "content": None,
                     "_ab_source_file_parse_error": "Error parsing record. This could be due to a mismatch between the config's file type and the actual file type, or because the file or record is not parseable. Contact Support if you need assistance.\nfilename=sample.pdf message=No /Root object! - Is this really a PDF?",
                     "_ab_source_file_last_modified": "2023-06-05T03:54:07.000000Z",
                     "_ab_source_file_url": "sample.pdf",
@@ -563,7 +567,6 @@ no_file_extension_unstructured_scenario = (
                     "source_defined_cursor": True,
                     "source_defined_primary_key": [["document_key"]],
                     "supported_sync_modes": ["full_refresh", "incremental"],
-                    "is_resumable": True,
                 }
             ]
         }
@@ -576,6 +579,7 @@ no_file_extension_unstructured_scenario = (
                     "content": "# Hello World",
                     "_ab_source_file_last_modified": "2023-06-05T03:54:07.000000Z",
                     "_ab_source_file_url": "pdf_without_extension",
+                    "_ab_source_file_parse_error": None,
                 },
                 "stream": "stream1",
             },
@@ -585,6 +589,7 @@ no_file_extension_unstructured_scenario = (
                     "content": "# Content",
                     "_ab_source_file_last_modified": "2023-06-06T03:54:07.000000Z",
                     "_ab_source_file_url": "docx_without_extension",
+                    "_ab_source_file_parse_error": None,
                 },
                 "stream": "stream1",
             },
@@ -594,6 +599,7 @@ no_file_extension_unstructured_scenario = (
                     "content": "# Title",
                     "_ab_source_file_last_modified": "2023-06-07T03:54:07.000000Z",
                     "_ab_source_file_url": "pptx_without_extension",
+                    "_ab_source_file_parse_error": None,
                 },
                 "stream": "stream1",
             },

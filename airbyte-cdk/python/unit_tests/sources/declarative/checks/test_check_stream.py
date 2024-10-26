@@ -10,6 +10,7 @@ import pytest
 import requests
 from airbyte_cdk.sources.declarative.checks.check_stream import CheckStream
 from airbyte_cdk.sources.streams.http import HttpStream
+from airbyte_cdk.sources.streams.http.availability_strategy import HttpAvailabilityStrategy
 
 logger = logging.getLogger("test")
 config = dict()
@@ -59,6 +60,7 @@ def mock_read_records(responses, default_response=None, **kwargs):
 def test_check_empty_stream():
     stream = MagicMock()
     stream.name = "s1"
+    stream.availability_strategy = None
     stream.read_records.return_value = iter([])
     stream.stream_slices.return_value = iter([None])
 
@@ -73,6 +75,7 @@ def test_check_empty_stream():
 def test_check_stream_with_no_stream_slices_aborts():
     stream = MagicMock()
     stream.name = "s1"
+    stream.availability_strategy = None
     stream.stream_slices.return_value = iter([])
 
     source = MagicMock()
@@ -87,12 +90,15 @@ def test_check_stream_with_no_stream_slices_aborts():
 @pytest.mark.parametrize(
     "test_name, response_code, available_expectation, expected_messages",
     [
-        ("test_stream_unavailable_unhandled_error", 404, False, ["Not found. The requested resource was not found on the server."]),
+        ("test_stream_unavailable_unhandled_error", 404, False, ["Unable to connect to stream mock_http_stream", "404 Client Error"]),
         (
             "test_stream_unavailable_handled_error",
             403,
             False,
-            ["Forbidden. You don't have permission to access this resource."],
+            [
+                "Unable to read mock_http_stream stream",
+                "This is most likely due to insufficient permissions on the credentials in use.",
+            ],
         ),
         ("test_stream_available", 200, True, []),
     ],
@@ -121,6 +127,7 @@ def test_check_http_stream_via_availability_strategy(mocker, test_name, response
 
     http_stream = MockHttpStream()
     assert isinstance(http_stream, HttpStream)
+    assert isinstance(http_stream.availability_strategy, HttpAvailabilityStrategy)
 
     source = MagicMock()
     source.streams.return_value = [http_stream]

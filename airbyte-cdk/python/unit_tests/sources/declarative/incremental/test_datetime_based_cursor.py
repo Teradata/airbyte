@@ -10,7 +10,7 @@ from airbyte_cdk.sources.declarative.datetime.min_max_datetime import MinMaxDate
 from airbyte_cdk.sources.declarative.incremental import DatetimeBasedCursor
 from airbyte_cdk.sources.declarative.interpolation.interpolated_string import InterpolatedString
 from airbyte_cdk.sources.declarative.requesters.request_option import RequestOption, RequestOptionType
-from airbyte_cdk.sources.types import Record, StreamSlice
+from airbyte_cdk.sources.declarative.types import Record, StreamSlice
 
 datetime_format = "%Y-%m-%dT%H:%M:%S.%f%z"
 cursor_granularity = "PT0.000001S"
@@ -36,7 +36,7 @@ def mock_datetime_now(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "test_name, stream_state, start, end, step, cursor_field, lookback_window, datetime_format, cursor_granularity, is_compare_strictly, expected_slices",
+    "test_name, stream_state, start, end, step, cursor_field, lookback_window, datetime_format, cursor_granularity, expected_slices",
     [
         (
             "test_1_day",
@@ -48,7 +48,6 @@ def mock_datetime_now(monkeypatch):
             None,
             datetime_format,
             cursor_granularity,
-            None,
             [
                 {"start_time": "2021-01-01T00:00:00.000000+0000", "end_time": "2021-01-01T23:59:59.999999+0000"},
                 {"start_time": "2021-01-02T00:00:00.000000+0000", "end_time": "2021-01-02T23:59:59.999999+0000"},
@@ -72,7 +71,6 @@ def mock_datetime_now(monkeypatch):
             None,
             datetime_format,
             cursor_granularity,
-            None,
             [
                 {"start_time": "2021-01-01T00:00:00.000000+0000", "end_time": "2021-01-02T23:59:59.999999+0000"},
                 {"start_time": "2021-01-03T00:00:00.000000+0000", "end_time": "2021-01-04T23:59:59.999999+0000"},
@@ -91,7 +89,6 @@ def mock_datetime_now(monkeypatch):
             None,
             datetime_format,
             cursor_granularity,
-            None,
             [
                 {"start_time": "2021-01-01T00:00:00.000000+0000", "end_time": "2021-01-07T23:59:59.999999+0000"},
                 {"start_time": "2021-01-08T00:00:00.000000+0000", "end_time": "2021-01-14T23:59:59.999999+0000"},
@@ -111,7 +108,6 @@ def mock_datetime_now(monkeypatch):
             None,
             datetime_format,
             cursor_granularity,
-            None,
             [
                 {"start_time": "2021-01-01T00:00:00.000000+0000", "end_time": "2021-01-31T23:59:59.999999+0000"},
                 {"start_time": "2021-02-01T00:00:00.000000+0000", "end_time": "2021-02-28T23:59:59.999999+0000"},
@@ -131,7 +127,6 @@ def mock_datetime_now(monkeypatch):
             None,
             datetime_format,
             cursor_granularity,
-            None,
             [
                 {"start_time": "2021-01-01T00:00:00.000000+0000", "end_time": "2021-12-31T23:59:59.999999+0000"},
                 {"start_time": "2022-01-01T00:00:00.000000+0000", "end_time": "2022-01-01T00:00:00.000000+0000"},
@@ -147,7 +142,6 @@ def mock_datetime_now(monkeypatch):
             None,
             datetime_format,
             cursor_granularity,
-            None,
             [
                 {"start_time": "2021-01-05T00:00:00.000000+0000", "end_time": "2021-01-05T23:59:59.999999+0000"},
                 {"start_time": "2021-01-06T00:00:00.000000+0000", "end_time": "2021-01-06T23:59:59.999999+0000"},
@@ -167,7 +161,6 @@ def mock_datetime_now(monkeypatch):
             None,
             datetime_format,
             cursor_granularity,
-            None,
             [
                 {"start_time": "2021-01-01T00:00:00.000000+0000", "end_time": "2021-01-10T00:00:00.000000+0000"},
             ],
@@ -182,7 +175,6 @@ def mock_datetime_now(monkeypatch):
             None,
             datetime_format,
             cursor_granularity,
-            None,
             [
                 {"start_time": "2021-12-28T00:00:00.000000+0000", "end_time": "2021-12-28T23:59:59.999999+0000"},
                 {"start_time": "2021-12-29T00:00:00.000000+0000", "end_time": "2021-12-29T23:59:59.999999+0000"},
@@ -201,7 +193,6 @@ def mock_datetime_now(monkeypatch):
             None,
             datetime_format,
             cursor_granularity,
-            None,
             [
                 {"start_time": "2021-01-05T00:00:00.000000+0000", "end_time": "2021-01-05T00:00:00.000000+0000"},
             ],
@@ -216,7 +207,6 @@ def mock_datetime_now(monkeypatch):
             None,
             datetime_format,
             cursor_granularity,
-            None,
             [
                 {"start_time": "2021-01-05T00:00:00.000000+0000", "end_time": "2021-01-05T23:59:59.999999+0000"},
                 {"start_time": "2021-01-06T00:00:00.000000+0000", "end_time": "2021-01-06T23:59:59.999999+0000"},
@@ -236,7 +226,6 @@ def mock_datetime_now(monkeypatch):
             None,
             datetime_format,
             cursor_granularity,
-            None,
             [
                 {"start_time": "2021-01-05T00:00:00.000000+0000", "end_time": "2021-01-06T23:59:59.999999+0000"},
                 {"start_time": "2021-01-07T00:00:00.000000+0000", "end_time": "2021-01-08T23:59:59.999999+0000"},
@@ -253,7 +242,6 @@ def mock_datetime_now(monkeypatch):
             "P3D",
             datetime_format,
             cursor_granularity,
-            None,
             [
                 {"start_time": "2021-01-02T00:00:00.000000+0000", "end_time": "2021-01-02T23:59:59.999999+0000"},
                 {"start_time": "2021-01-03T00:00:00.000000+0000", "end_time": "2021-01-03T23:59:59.999999+0000"},
@@ -271,7 +259,6 @@ def mock_datetime_now(monkeypatch):
             "P3D",
             datetime_format,
             cursor_granularity,
-            None,
             [
                 {"start_time": "2021-01-02T00:00:00.000000+0000", "end_time": "2021-01-02T23:59:59.999999+0000"},
                 {"start_time": "2021-01-03T00:00:00.000000+0000", "end_time": "2021-01-03T23:59:59.999999+0000"},
@@ -290,7 +277,6 @@ def mock_datetime_now(monkeypatch):
             "{{ config['does_not_exist'] }}",
             datetime_format,
             cursor_granularity,
-            None,
             [
                 {"start_time": "2021-01-01T00:00:00.000000+0000", "end_time": "2021-01-01T23:59:59.999999+0000"},
                 {"start_time": "2021-01-02T00:00:00.000000+0000", "end_time": "2021-01-02T23:59:59.999999+0000"},
@@ -309,7 +295,6 @@ def mock_datetime_now(monkeypatch):
             None,
             datetime_format,
             cursor_granularity,
-            None,
             [
                 {"start_time": "2021-01-05T00:00:00.000000+0000", "end_time": "2021-01-05T23:59:59.999999+0000"},
                 {"start_time": "2021-01-06T00:00:00.000000+0000", "end_time": "2021-01-06T23:59:59.999999+0000"},
@@ -317,21 +302,6 @@ def mock_datetime_now(monkeypatch):
                 {"start_time": "2021-01-08T00:00:00.000000+0000", "end_time": "2021-01-08T23:59:59.999999+0000"},
                 {"start_time": "2021-01-09T00:00:00.000000+0000", "end_time": "2021-01-09T23:59:59.999999+0000"},
                 {"start_time": "2021-01-10T00:00:00.000000+0000", "end_time": "2021-01-10T00:00:00.000000+0000"},
-            ],
-        ),
-        (
-            "test_slices_without_intersections",
-            NO_STATE,
-            MinMaxDatetime(datetime="{{ config['start_date'] }}", parameters={}),
-            MinMaxDatetime(datetime="2021-02-01T00:00:00.000000+0000", parameters={}),
-            "P1M",
-            cursor_field,
-            None,
-            datetime_format,
-            cursor_granularity,
-            True,
-            [
-                {"start_time": "2021-01-01T00:00:00.000000+0000", "end_time": "2021-01-31T23:59:59.999999+0000"},
             ],
         ),
     ],
@@ -347,7 +317,6 @@ def test_stream_slices(
     lookback_window,
     datetime_format,
     cursor_granularity,
-    is_compare_strictly,
     expected_slices,
 ):
     lookback_window = InterpolatedString(string=lookback_window, parameters={}) if lookback_window else None
@@ -359,7 +328,6 @@ def test_stream_slices(
         datetime_format=datetime_format,
         cursor_granularity=cursor_granularity,
         lookback_window=lookback_window,
-        is_compare_strictly=is_compare_strictly,
         config=config,
         parameters={},
     )
@@ -580,11 +548,10 @@ def test_request_option(test_name, inject_into, field_name, expected_req_params,
 
 
 @pytest.mark.parametrize(
-    "stream_slice",
-    [
+    "stream_slice", [
         pytest.param(None, id="test_none_stream_slice"),
         pytest.param({}, id="test_none_stream_slice"),
-    ],
+    ]
 )
 def test_request_option_with_empty_stream_slice(stream_slice):
     start_request_option = RequestOption(inject_into=RequestOptionType.request_parameter, parameters={}, field_name="starttime")

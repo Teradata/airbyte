@@ -12,9 +12,7 @@ from airbyte_cdk.test.mock_http import HttpRequest, HttpRequestMatcher, HttpResp
 
 class SupportedHttpMethods(str, Enum):
     GET = "get"
-    PATCH = "patch"
     POST = "post"
-    DELETE = "delete"
 
 
 class HttpMocker(contextlib.ContextDecorator):
@@ -70,14 +68,8 @@ class HttpMocker(contextlib.ContextDecorator):
     def get(self, request: HttpRequest, responses: Union[HttpResponse, List[HttpResponse]]) -> None:
         self._mock_request_method(SupportedHttpMethods.GET, request, responses)
 
-    def patch(self, request: HttpRequest, responses: Union[HttpResponse, List[HttpResponse]]) -> None:
-        self._mock_request_method(SupportedHttpMethods.PATCH, request, responses)
-
     def post(self, request: HttpRequest, responses: Union[HttpResponse, List[HttpResponse]]) -> None:
         self._mock_request_method(SupportedHttpMethods.POST, request, responses)
-
-    def delete(self, request: HttpRequest, responses: Union[HttpResponse, List[HttpResponse]]) -> None:
-        self._mock_request_method(SupportedHttpMethods.DELETE, request, responses)
 
     @staticmethod
     def _matches_wrapper(matcher: HttpRequestMatcher) -> Callable[[requests_mock.request._RequestObjectProxy], bool]:

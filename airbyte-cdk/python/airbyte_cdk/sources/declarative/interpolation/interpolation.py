@@ -3,9 +3,9 @@
 #
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Optional
 
-from airbyte_cdk.sources.types import Config
+from airbyte_cdk.sources.declarative.types import Config
 
 
 class Interpolation(ABC):
@@ -14,7 +14,7 @@ class Interpolation(ABC):
     """
 
     @abstractmethod
-    def eval(self, input_str: str, config: Config, default: Optional[str] = None, **additional_options: Any) -> Any:
+    def eval(self, input_str: str, config: Config, default: Optional[str] = None, **additional_options):
         """
         Interpolates the input string using the config, and additional options passed as parameter.
 

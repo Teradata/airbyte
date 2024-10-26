@@ -6,14 +6,13 @@ from abc import ABC, abstractmethod
 from typing import Any, Iterable, Mapping, Optional
 
 from airbyte_cdk.models import AirbyteStream
-from airbyte_cdk.sources.source import ExperimentalClassWarning
 from airbyte_cdk.sources.streams.concurrent.availability_strategy import StreamAvailability
 from airbyte_cdk.sources.streams.concurrent.cursor import Cursor
 from airbyte_cdk.sources.streams.concurrent.partitions.partition import Partition
 from deprecated.classic import deprecated
 
 
-@deprecated("This class is experimental. Use at your own risk.", category=ExperimentalClassWarning)
+@deprecated("This class is experimental. Use at your own risk.")
 class AbstractStream(ABC):
     """
     AbstractStream is an experimental interface for streams developed as part of the Concurrent CDK.
