@@ -42,19 +42,10 @@ class TeradataDestinationHandler(jdbcDatabase: JdbcDatabase, rawTableDatabaseNam
             json.hasNonNull("needsSoftReset") && json["needsSoftReset"].asBoolean(),
         )
 
-    override fun toJdbcTypeName(airbyteType: AirbyteType): String {
-        LOGGER.info(
-            "Satish - TeradataDestinationHandler - toJdbcTypeName : {}",
-            airbyteType.typeName
-        )
-        val test =
+    override fun toJdbcTypeName(airbyteType: AirbyteType): String =
             if (airbyteType is AirbyteProtocolType) {
-                LOGGER.info("Satish - TeradataDestinationHandler - toJdbcTypeName : comanion type")
                 Companion.toJdbcTypeName(airbyteType)
             } else {
-                LOGGER.info(
-                    "Satish - TeradataDestinationHandler - toJdbcTypeName : non comanion type"
-                )
                 when (airbyteType.typeName) {
                     Struct.TYPE,
                     UnsupportedOneOf.TYPE,
@@ -63,12 +54,9 @@ class TeradataDestinationHandler(jdbcDatabase: JdbcDatabase, rawTableDatabaseNam
                     else -> throw IllegalArgumentException("Unsupported AirbyteType: $airbyteType")
                 }
             }
-        return test
-    }
 
     @Throws(Exception::class)
     override fun isFinalTableEmpty(id: StreamId): Boolean {
-        LOGGER.info("Satish - TeradataDestinationHandler - isFinalTableEmpty")
         var result = false
         try {
             result =
@@ -101,8 +89,7 @@ class TeradataDestinationHandler(jdbcDatabase: JdbcDatabase, rawTableDatabaseNam
 
     override fun getDeleteStatesSql(
         destinationStates: Map<StreamId, MinimumDestinationState>
-    ): String {
-        val query =
+    ): String =
             dslContext
                 .deleteFrom(
                     table(
@@ -128,12 +115,6 @@ class TeradataDestinationHandler(jdbcDatabase: JdbcDatabase, rawTableDatabaseNam
                         },
                 )
                 .getSQL(ParamType.INLINED)
-        LOGGER.info(
-            "Satish - TeradataDestinationHandler - getDeleteStatesSql - delete query - {}",
-            query
-        )
-        return query
-    }
 
     override fun commitDestinationStates(
         destinationStates: Map<StreamId, MinimumDestinationState>
@@ -183,10 +164,6 @@ class TeradataDestinationHandler(jdbcDatabase: JdbcDatabase, rawTableDatabaseNam
                             null,
                         )
                         .getSQL(ParamType.INLINED)
-                LOGGER.info(
-                    "Satish - TeradataDestinationHandler - commitDestinationStates - insertStatesStep - {}",
-                    insertStatesStep
-                )
                 sqlStatementsDestinationState.add(insertStatesStep)
             }
 
@@ -219,10 +196,6 @@ class TeradataDestinationHandler(jdbcDatabase: JdbcDatabase, rawTableDatabaseNam
                         stateTableUpdatedAtType,
                     )
                     .getSQL(ParamType.INLINED)
-            LOGGER.info(
-                "Satish - TeradataDestinationHandler - getAllDestinationStates - sqlStatement - {}",
-                sqlStatement
-            )
             try {
                 jdbcDatabase.execute(sqlStatement)
             } catch (e: SQLException) {
@@ -232,10 +205,6 @@ class TeradataDestinationHandler(jdbcDatabase: JdbcDatabase, rawTableDatabaseNam
                     throw java.lang.RuntimeException(e)
                 }
             }
-
-            // Fetch all records from it. We _could_ filter down to just our streams... but meh.
-            // This is small
-            // data.
             return jdbcDatabase
                 .queryJsons(
                     dslContext
@@ -254,18 +223,12 @@ class TeradataDestinationHandler(jdbcDatabase: JdbcDatabase, rawTableDatabaseNam
                         .sql,
                 )
                 .map { recordJson: JsonNode ->
-                    // Forcibly downcase all key names.
-                    // This is to handle any destinations that upcase the column names.
-                    // For example - Snowflake with QUOTED_IDENTIFIERS_IGNORE_CASE=TRUE.
                     val record = recordJson as ObjectNode
                     val newFields: HashMap<String, JsonNode> = HashMap()
 
                     val it = record.fieldNames()
                     while (it.hasNext()) {
                         val fieldName = it.next()
-                        // We can't directly call record.set here, because that will raise a
-                        // ConcurrentModificationException on the fieldnames iterator.
-                        // Instead, build up a map of new fields and set them all at once.
                         newFields[fieldName.lowercase(Locale.getDefault())] = record[fieldName]
                     }
                     record.setAll<JsonNode>(newFields)
@@ -302,17 +265,13 @@ class TeradataDestinationHandler(jdbcDatabase: JdbcDatabase, rawTableDatabaseNam
         }
     }
 
-    override fun findExistingTable(id: StreamId): Optional<TableDefinition> {
-        LOGGER.info("Satish - TeradataDestinationHandler - findExistingTable - StreamId {}", id)
-        val temp = findExistingTable(jdbcDatabase, id.finalNamespace, null, id.finalName)
-        return temp
-    }
+    override fun findExistingTable(id: StreamId): Optional<TableDefinition> =
+        findExistingTable(jdbcDatabase, id.finalNamespace, null, id.finalName)
 
     override fun execute(sql: Sql) {
         val transactions: List<List<String>> = sql.transactions
         for (transaction in transactions) {
             try {
-                LOGGER.info("Satish - TeradataDestinationHandler - execute - query {}", transaction)
                 jdbcDatabase.executeWithinTransaction(transaction)
             } catch (e: SQLException) {
                 if (e.message!!.contains("with the specified name already exists")) {
@@ -333,9 +292,7 @@ class TeradataDestinationHandler(jdbcDatabase: JdbcDatabase, rawTableDatabaseNam
         private const val DESTINATION_STATE_TABLE_COLUMN_NAME = "name"
         private const val DESTINATION_STATE_TABLE_COLUMN_NAMESPACE = "namespace"
 
-        private fun toJdbcTypeName(airbyteProtocolType: AirbyteProtocolType): String {
-            LOGGER.info("Satish toJdbcTypeName: {}", airbyteProtocolType)
-            val test =
+        private fun toJdbcTypeName(airbyteProtocolType: AirbyteProtocolType): String  =
                 when (airbyteProtocolType) {
                     AirbyteProtocolType.STRING -> "text"
                     AirbyteProtocolType.NUMBER -> "decimal"
@@ -348,7 +305,5 @@ class TeradataDestinationHandler(jdbcDatabase: JdbcDatabase, rawTableDatabaseNam
                     AirbyteProtocolType.DATE -> "date"
                     AirbyteProtocolType.UNKNOWN -> "json"
                 }
-            return test
-        }
     }
 }

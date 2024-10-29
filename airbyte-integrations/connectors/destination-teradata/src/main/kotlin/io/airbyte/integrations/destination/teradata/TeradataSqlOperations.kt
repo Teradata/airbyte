@@ -47,7 +47,6 @@ class TeradataSqlOperations : JdbcSqlOperations() {
     ) {
         try {
             val query = createTableQuery(database, schemaName, tableName)
-            LOGGER.info("Satish - createtableSQL - {}", query)
             database.execute(query)
         } catch (e: SQLException) {
             if (e.message!!.contains("already exists")) {
@@ -202,11 +201,6 @@ class TeradataSqlOperations : JdbcSqlOperations() {
             for (query in queries) {
                 appendedQueries.append(query)
             }
-
-            LOGGER.info(
-                "Satish - TeradataSqlOperations - executeTransaction - appendedQueries - {}",
-                appendedQueries
-            )
             database.execute(appendedQueries.toString())
         } catch (e: SQLException) {
             AirbyteTraceMessageUtility.emitSystemErrorTrace(
