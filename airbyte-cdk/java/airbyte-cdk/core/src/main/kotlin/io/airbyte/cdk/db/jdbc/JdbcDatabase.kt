@@ -155,6 +155,7 @@ abstract class JdbcDatabase(protected val sourceOperations: JdbcCompatibleSource
 
     @Throws(SQLException::class)
     fun queryBoolean(sql: String, vararg params: String): Boolean {
+        LOGGER.info("Satish - JdbcDatabase - queryBoolean - query - {}", sql)
         unsafeQuery(
                 { c: Connection -> getPreparedStatement(sql, params, c) },
                 { rs: ResultSet -> rs.getBoolean(1) }

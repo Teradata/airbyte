@@ -410,7 +410,7 @@ constructor(
             .columns(buildFinalTableFields(columns, metaFields))
     }
 
-    private fun insertAndDeleteTransaction(
+    protected open fun insertAndDeleteTransaction(
         streamConfig: StreamConfig,
         finalSuffix: String?,
         minRawTimestamp: Optional<Instant>,
@@ -514,7 +514,7 @@ constructor(
         return createSchemaSql.sql
     }
 
-    protected fun createTableSql(
+    protected open fun createTableSql(
         namespace: String,
         tableName: String,
         columns: LinkedHashMap<ColumnId, AirbyteType>
@@ -538,7 +538,7 @@ constructor(
         return commitTransaction() + ";"
     }
 
-    private fun deleteFromFinalTable(
+    fun deleteFromFinalTable(
         schemaName: String,
         tableName: String,
         primaryKeys: List<ColumnId>,
@@ -564,14 +564,14 @@ constructor(
             .getSQL(ParamType.INLINED)
     }
 
-    private fun deleteFromFinalTableCdcDeletes(schema: String, tableName: String): String {
+    fun deleteFromFinalTableCdcDeletes(schema: String, tableName: String): String {
         val dsl = dslContext
         return dsl.deleteFrom(DSL.table(DSL.quotedName(schema, tableName)))
             .where(DSL.field(DSL.quotedName(cdcDeletedAtColumn.name)).isNotNull())
             .getSQL(ParamType.INLINED)
     }
 
-    private fun checkpointRawTable(
+    fun checkpointRawTable(
         schemaName: String,
         tableName: String,
         minRawTimestamp: Optional<Instant>

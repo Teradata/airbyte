@@ -6,7 +6,6 @@ package io.airbyte.integrations.destination.teradata
 import com.fasterxml.jackson.databind.JsonNode
 import com.google.common.collect.ImmutableMap
 import io.airbyte.cdk.db.factory.DataSourceFactory
-import io.airbyte.cdk.db.jdbc.DefaultJdbcDatabase
 import io.airbyte.cdk.db.jdbc.JdbcDatabase
 import io.airbyte.cdk.db.jdbc.JdbcUtils
 import io.airbyte.cdk.integrations.base.Destination
@@ -71,14 +70,10 @@ class TeradataDestination :
         setQueryBand(getDatabase(dataSource))
         return dataSource
     }
-    /**
-     * Retrieves the JdbcDatabase instance based on the provided DataSource.
-     *
-     * @param dataSource The DataSource to create the JdbcDatabase from.
-     * @return The JdbcDatabase instance.
-     */
-    override fun getDatabase(dataSource: DataSource): JdbcDatabase {
-        return DefaultJdbcDatabase(dataSource)
+
+    /** Returns schema name */
+    override fun getDatabaseName(config: JsonNode): String {
+        return config[JdbcUtils.SCHEMA_KEY].asText()
     }
     /**
      * Sets the Teradata session query band to identify the source of SQL requests originating from

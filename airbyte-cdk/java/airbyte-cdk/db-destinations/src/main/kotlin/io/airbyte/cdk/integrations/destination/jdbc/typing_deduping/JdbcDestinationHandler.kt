@@ -67,7 +67,7 @@ abstract class JdbcDestinationHandler<DestinationState>(
         dbmetadata.getTables(catalogName, id.rawNamespace, id.rawName, null)
 
     @Throws(Exception::class)
-    private fun isFinalTableEmpty(id: StreamId): Boolean {
+    protected open fun isFinalTableEmpty(id: StreamId): Boolean {
         return !jdbcDatabase.queryBoolean(
             dslContext
                 .select(
@@ -218,7 +218,8 @@ abstract class JdbcDestinationHandler<DestinationState>(
     }
 
     @Throws(SQLException::class)
-    protected open fun getAllDestinationStates(): Map<AirbyteStreamNameNamespacePair, DestinationState> {
+    protected open fun getAllDestinationStates():
+        Map<AirbyteStreamNameNamespacePair, DestinationState> {
         try {
             // Guarantee the table exists.
             jdbcDatabase.execute(
@@ -539,6 +540,8 @@ abstract class JdbcDestinationHandler<DestinationState>(
                         tableName
                     )
                     try {
+
+                        LOGGER.info("Satish Before getColumns")
                         dbMetadata!!.getColumns(catalogName, schemaName, tableName, null).use {
                             columns ->
                             while (columns.next()) {
@@ -555,6 +558,7 @@ abstract class JdbcDestinationHandler<DestinationState>(
                                     )
                             }
                         }
+                        LOGGER.info("Satish after getColumns")
                     } catch (e: SQLException) {
                         LOGGER.error(
                             "Failed to retrieve column info for {}.{}.{}",
@@ -567,6 +571,7 @@ abstract class JdbcDestinationHandler<DestinationState>(
                     }
                     columnDefinitions
                 }
+            LOGGER.info("Satish After exception")
             // Guard to fail fast
             if (retrievedColumnDefns.isEmpty()) {
                 return Optional.empty()

@@ -82,6 +82,7 @@ constructor(
 
     override fun <T> executeMetadataQuery(query: Function<DatabaseMetaData?, T>): T {
         try {
+            LOGGER.info("Satish - DefaultJdbcDatabase - executeMetadataQuery - query  - {}", query)
             dataSource.connection.use { connection ->
                 val metaData = connection.metaData
                 return query.apply(metaData)
