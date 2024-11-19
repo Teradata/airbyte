@@ -243,7 +243,7 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
     override fun toDialectType(airbyteProtocolType: AirbyteProtocolType): DataType<*> =
         when (airbyteProtocolType) {
             AirbyteProtocolType.STRING -> SQLDataType.VARCHAR(64000)
-            AirbyteProtocolType.BOOLEAN -> SQLDataType.BOOLEAN
+            AirbyteProtocolType.BOOLEAN -> SQLDataType.VARCHAR(4)
             AirbyteProtocolType.INTEGER -> SQLDataType.INTEGER
             AirbyteProtocolType.NUMBER -> SQLDataType.FLOAT
             else -> super.toDialectType(airbyteProtocolType)
