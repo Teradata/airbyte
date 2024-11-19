@@ -99,7 +99,7 @@ class TeradataDestination :
      * @param config The configuration settings as a JsonNode.
      * @return A map of default connection properties.
      */
-    override fun getDefaultConnectionProperties(config: JsonNode): Map<String, String> {
+    public override fun getDefaultConnectionProperties(config: JsonNode): Map<String, String> {
         val additionalParameters: MutableMap<String, String> = HashMap()
         if (
             config.has(TeradataConstants.PARAM_SSL) &&

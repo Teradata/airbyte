@@ -77,15 +77,14 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
     }
 
     override fun cdcDeletedAtNotNullCondition(): Condition =
-            field(name(COLUMN_NAME_AB_LOADED_AT))
-                .isNotNull()
-                .and(extractColumnAsJson(cdcDeletedAtColumn).notEqual("null"))
+        field(name(COLUMN_NAME_AB_LOADED_AT))
+            .isNotNull()
+            .and(extractColumnAsJson(cdcDeletedAtColumn).notEqual("null"))
     private fun extractColumnAsJson(column: ColumnId): Field<Any> =
-            field(
-                (("cast(" + name(COLUMN_NAME_DATA)) +
-                    ".JSONExtract('$." +
-                    field(column.originalName)) + "') as VARCHAR(100) )"
-            )
+        field(
+            (("cast(" + name(COLUMN_NAME_DATA)) + ".JSONExtract('$." + field(column.originalName)) +
+                "') as VARCHAR(100) )"
+        )
 
     override fun extractRawDataFields(
         columns: LinkedHashMap<ColumnId, AirbyteType>,
@@ -235,20 +234,20 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
 
         orderedFields.add(field("{0}", quotedName(COLUMN_NAME_AB_EXTRACTED_AT)).desc())
         return rowNumber()
-                .over()
-                .partitionBy(primaryKeyFields)
-                .orderBy(orderedFields)
-                .`as`(ROW_NUMBER_COLUMN_NAME)
+            .over()
+            .partitionBy(primaryKeyFields)
+            .orderBy(orderedFields)
+            .`as`(ROW_NUMBER_COLUMN_NAME)
     }
 
     override fun toDialectType(airbyteProtocolType: AirbyteProtocolType): DataType<*> =
-            when (airbyteProtocolType) {
-                AirbyteProtocolType.STRING -> SQLDataType.VARCHAR(64000)
-                AirbyteProtocolType.BOOLEAN -> SQLDataType.BOOLEAN
-                AirbyteProtocolType.INTEGER -> SQLDataType.INTEGER
-                AirbyteProtocolType.NUMBER -> SQLDataType.FLOAT
-                else -> super.toDialectType(airbyteProtocolType)
-            }
+        when (airbyteProtocolType) {
+            AirbyteProtocolType.STRING -> SQLDataType.VARCHAR(64000)
+            AirbyteProtocolType.BOOLEAN -> SQLDataType.BOOLEAN
+            AirbyteProtocolType.INTEGER -> SQLDataType.INTEGER
+            AirbyteProtocolType.NUMBER -> SQLDataType.FLOAT
+            else -> super.toDialectType(airbyteProtocolType)
+        }
 
     override fun createTable(stream: StreamConfig, suffix: String, force: Boolean): Sql {
         val finalTableIdentifier: String =
@@ -309,15 +308,15 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
         val newTableName: String = stream.finalName
 
         return separately(
-                String.format("DROP TABLE %s.%s;", spaceName, newTableName),
-                String.format(
-                    "RENAME TABLE %s.%s TO %s.%s;",
-                    spaceName,
-                    tableName,
-                    spaceName,
-                    newTableName,
-                ),
-            )
+            String.format("DROP TABLE %s.%s;", spaceName, newTableName),
+            String.format(
+                "RENAME TABLE %s.%s TO %s.%s;",
+                spaceName,
+                tableName,
+                spaceName,
+                newTableName,
+            ),
+        )
     }
 
     override fun migrateFromV1toV2(streamId: StreamId, namespace: String, tableName: String): Sql {
@@ -332,20 +331,20 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
         namespace: String,
         tableName: String
     ): String =
-            java.lang.String.format(
-                "CREATE TABLE %s AS ( SELECT %s %s, %s %s, CAST(NULL AS TIMESTAMP WITH TIME ZONE) %s, %s %s, CAST(NULL AS JSON) %s FROM %s.%s) WITH DATA",
-                rawTableName,
-                COLUMN_NAME_AB_ID,
-                COLUMN_NAME_AB_RAW_ID,
-                COLUMN_NAME_EMITTED_AT,
-                COLUMN_NAME_AB_EXTRACTED_AT,
-                COLUMN_NAME_AB_LOADED_AT,
-                COLUMN_NAME_DATA,
-                COLUMN_NAME_DATA,
-                COLUMN_NAME_AB_META,
-                namespace,
-                tableName,
-            )
+        java.lang.String.format(
+            "CREATE TABLE %s AS ( SELECT %s %s, %s %s, CAST(NULL AS TIMESTAMP WITH TIME ZONE) %s, %s %s, CAST(NULL AS JSON) %s FROM %s.%s) WITH DATA",
+            rawTableName,
+            COLUMN_NAME_AB_ID,
+            COLUMN_NAME_AB_RAW_ID,
+            COLUMN_NAME_EMITTED_AT,
+            COLUMN_NAME_AB_EXTRACTED_AT,
+            COLUMN_NAME_AB_LOADED_AT,
+            COLUMN_NAME_DATA,
+            COLUMN_NAME_DATA,
+            COLUMN_NAME_AB_META,
+            namespace,
+            tableName,
+        )
 
     override fun insertAndDeleteTransaction(
         streamConfig: StreamConfig,
