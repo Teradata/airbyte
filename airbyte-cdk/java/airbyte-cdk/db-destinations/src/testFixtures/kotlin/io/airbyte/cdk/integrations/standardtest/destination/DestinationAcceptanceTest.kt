@@ -2014,7 +2014,7 @@ abstract class DestinationAcceptanceTest(
         return StandardCheckConnectionOutput.Status.FAILED
     }
 
-    protected val destination: AirbyteDestination
+    protected open val destination: AirbyteDestination
         get() {
             return DefaultAirbyteDestination(
                 integrationLauncher =
