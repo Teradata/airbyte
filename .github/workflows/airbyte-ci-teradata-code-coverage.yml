@@ -32,7 +32,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '21'
       - name: "Install Node 16"
         uses: actions/setup-node@v4
         with:
@@ -51,4 +51,7 @@ jobs:
           sudo apt-get install docker-ce docker-ce-cli containerd.io docker-compose-plugin
           sudo chmod 666 /var/run/docker.sock
       - name: "Run Teradata Destination Connector Tests"
-        run:   ./gradlew clean :airbyte-integrations:connectors:destination-teradata:test
+        run:  |  
+          python3 -m venv  venv
+          source venv/bin/activate
+          ./gradlew clean :airbyte-integrations:connectors:destination-teradata:test
