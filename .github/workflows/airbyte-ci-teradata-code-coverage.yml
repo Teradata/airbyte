@@ -50,5 +50,5 @@ jobs:
           sudo apt-get update
           sudo apt-get install docker-ce docker-ce-cli containerd.io docker-compose-plugin
           sudo chmod 666 /var/run/docker.sock
-      - name: "Run Teradata Destination Connector Integration Tests"
-        run:   ./gradlew :airbyte-integrations:connectors:destination-teradata:test
+      - name: "Run Teradata Destination Connector Tests"
+        run:   ./gradlew clean :airbyte-integrations:connectors:destination-teradata:test
