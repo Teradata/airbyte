@@ -55,3 +55,11 @@ jobs:
           python3 -m venv  venv
           source venv/bin/activate
           ./gradlew clean :airbyte-integrations:connectors:destination-teradata:test
+          ls airbyte-integrations/connectors/destination-teradata/build/reports/jacoco/test
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: airbyte-teradata-connector-code-coverage-report
+          path: |
+            airbyte-integrations/connectors/destination-teradata/build/reports/jacoco/test
+          
