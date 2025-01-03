@@ -1,4 +1,4 @@
-name: airbyte-ci-teradata
+name: airbyte-ci-teradata-code-coverage
 on:
   push:
     branches:
