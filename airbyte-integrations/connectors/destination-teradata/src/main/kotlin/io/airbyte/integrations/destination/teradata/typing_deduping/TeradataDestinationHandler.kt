@@ -43,17 +43,17 @@ class TeradataDestinationHandler(jdbcDatabase: JdbcDatabase, rawTableDatabaseNam
         )
 
     override fun toJdbcTypeName(airbyteType: AirbyteType): String =
-            if (airbyteType is AirbyteProtocolType) {
-                Companion.toJdbcTypeName(airbyteType)
-            } else {
-                when (airbyteType.typeName) {
-                    Struct.TYPE,
-                    UnsupportedOneOf.TYPE,
-                    Array.TYPE -> "json"
-                    Union.TYPE -> toJdbcTypeName((airbyteType as Union).chooseType())
-                    else -> throw IllegalArgumentException("Unsupported AirbyteType: $airbyteType")
-                }
+        if (airbyteType is AirbyteProtocolType) {
+            Companion.toJdbcTypeName(airbyteType)
+        } else {
+            when (airbyteType.typeName) {
+                Struct.TYPE,
+                UnsupportedOneOf.TYPE,
+                Array.TYPE -> "json"
+                Union.TYPE -> toJdbcTypeName((airbyteType as Union).chooseType())
+                else -> throw IllegalArgumentException("Unsupported AirbyteType: $airbyteType")
             }
+        }
 
     @Throws(Exception::class)
     override fun isFinalTableEmpty(id: StreamId): Boolean {
@@ -90,31 +90,29 @@ class TeradataDestinationHandler(jdbcDatabase: JdbcDatabase, rawTableDatabaseNam
     override fun getDeleteStatesSql(
         destinationStates: Map<StreamId, MinimumDestinationState>
     ): String =
-            dslContext
-                .deleteFrom(
-                    table(
-                        quotedName(
-                            rawTableNamespace,
-                            DESTINATION_STATE_TABLE_NAME,
-                        ),
+        dslContext
+            .deleteFrom(
+                table(
+                    quotedName(
+                        rawTableNamespace,
+                        DESTINATION_STATE_TABLE_NAME,
                     ),
-                )
-                .where(
-                    destinationStates.keys
-                        .stream()
-                        .map { streamId: StreamId ->
-                            field(quotedName(DESTINATION_STATE_TABLE_COLUMN_NAME))
-                                .eq(streamId.originalName)
-                                .and(
-                                    field(quotedName(DESTINATION_STATE_TABLE_COLUMN_NAMESPACE))
-                                        .eq(streamId.originalNamespace),
-                                )
-                        }
-                        .reduce(DSL.noCondition()) { obj: Condition, arg2: Condition? ->
-                            obj.or(arg2)
-                        },
-                )
-                .getSQL(ParamType.INLINED)
+                ),
+            )
+            .where(
+                destinationStates.keys
+                    .stream()
+                    .map { streamId: StreamId ->
+                        field(quotedName(DESTINATION_STATE_TABLE_COLUMN_NAME))
+                            .eq(streamId.originalName)
+                            .and(
+                                field(quotedName(DESTINATION_STATE_TABLE_COLUMN_NAMESPACE))
+                                    .eq(streamId.originalNamespace),
+                            )
+                    }
+                    .reduce(DSL.noCondition()) { obj: Condition, arg2: Condition? -> obj.or(arg2) },
+            )
+            .getSQL(ParamType.INLINED)
 
     override fun commitDestinationStates(
         destinationStates: Map<StreamId, MinimumDestinationState>
@@ -292,18 +290,18 @@ class TeradataDestinationHandler(jdbcDatabase: JdbcDatabase, rawTableDatabaseNam
         private const val DESTINATION_STATE_TABLE_COLUMN_NAME = "name"
         private const val DESTINATION_STATE_TABLE_COLUMN_NAMESPACE = "namespace"
 
-        private fun toJdbcTypeName(airbyteProtocolType: AirbyteProtocolType): String  =
-                when (airbyteProtocolType) {
-                    AirbyteProtocolType.STRING -> "text"
-                    AirbyteProtocolType.NUMBER -> "decimal"
-                    AirbyteProtocolType.INTEGER -> "bigint"
-                    AirbyteProtocolType.BOOLEAN -> "bit"
-                    AirbyteProtocolType.TIMESTAMP_WITH_TIMEZONE -> "varchar"
-                    AirbyteProtocolType.TIMESTAMP_WITHOUT_TIMEZONE -> "datetime"
-                    AirbyteProtocolType.TIME_WITH_TIMEZONE -> "varchar"
-                    AirbyteProtocolType.TIME_WITHOUT_TIMEZONE -> "time"
-                    AirbyteProtocolType.DATE -> "date"
-                    AirbyteProtocolType.UNKNOWN -> "json"
-                }
+        private fun toJdbcTypeName(airbyteProtocolType: AirbyteProtocolType): String =
+            when (airbyteProtocolType) {
+                AirbyteProtocolType.STRING -> "text"
+                AirbyteProtocolType.NUMBER -> "decimal"
+                AirbyteProtocolType.INTEGER -> "bigint"
+                AirbyteProtocolType.BOOLEAN -> "bit"
+                AirbyteProtocolType.TIMESTAMP_WITH_TIMEZONE -> "varchar"
+                AirbyteProtocolType.TIMESTAMP_WITHOUT_TIMEZONE -> "datetime"
+                AirbyteProtocolType.TIME_WITH_TIMEZONE -> "varchar"
+                AirbyteProtocolType.TIME_WITHOUT_TIMEZONE -> "time"
+                AirbyteProtocolType.DATE -> "date"
+                AirbyteProtocolType.UNKNOWN -> "json"
+            }
     }
 }
