@@ -274,6 +274,7 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
                     stream.columns,
                 ),
             )
+        LOGGER.debug("Table Create SQL query: {} ", sl);
         return sl
     }
 
