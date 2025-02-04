@@ -274,6 +274,7 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
                     stream.columns,
                 ),
             )
+        LOGGER.debug("Create SQL query : {} - ", sl)
         return sl
     }
 
@@ -287,6 +288,7 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
             dsl.createTable(name(namespace, tableName))
                 .columns(buildFinalTableFields(columns, getFinalTableMetaColumns(true)))
                 .sql
+
         return addMultisetKeyword(createTableSql)
     }
 
