@@ -62,13 +62,15 @@ class TeradataDestination :
     override fun getConnectionProperties(config: JsonNode): Map<String, String> {
         return MoreMaps.merge(appendLogMech(config), super.getConnectionProperties(config))
     }
-    /**
-     * Appends Logging Mechanism to JDBC URL
-     */
+    /** Appends Logging Mechanism to JDBC URL */
     private fun appendLogMech(config: JsonNode): Map<String, String> {
         val logmechParams: MutableMap<String, String> = HashMap()
-        if (config.has(TeradataConstants.LOG_MECH) && config.get(TeradataConstants.LOG_MECH).has(TeradataConstants.AUTH_TYPE)
-            && config.get(TeradataConstants.LOG_MECH).get(TeradataConstants.AUTH_TYPE).asText() != TeradataConstants.TD2_LOG_MECH) {
+        if (
+            config.has(TeradataConstants.LOG_MECH) &&
+                config.get(TeradataConstants.LOG_MECH).has(TeradataConstants.AUTH_TYPE) &&
+                config.get(TeradataConstants.LOG_MECH).get(TeradataConstants.AUTH_TYPE).asText() !=
+                    TeradataConstants.TD2_LOG_MECH
+        ) {
             logmechParams[TeradataConstants.LOG_MECH] =
                 config.get(TeradataConstants.LOG_MECH).get(TeradataConstants.AUTH_TYPE).asText()
         }
