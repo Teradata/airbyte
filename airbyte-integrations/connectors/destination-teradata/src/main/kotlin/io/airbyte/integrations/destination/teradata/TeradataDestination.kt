@@ -48,7 +48,9 @@ class TeradataDestination :
         val jdbcConfig = this.toJdbcConfig(config)
         val dataSource =
             DataSourceFactory.create(
-                jdbcConfig[JdbcUtils.USERNAME_KEY].asText(),
+                if (jdbcConfig.has(JdbcUtils.USERNAME_KEY))
+                    jdbcConfig[JdbcUtils.USERNAME_KEY].asText()
+                else null,
                 if (jdbcConfig.has(JdbcUtils.PASSWORD_KEY))
                     jdbcConfig[JdbcUtils.PASSWORD_KEY].asText()
                 else null,
@@ -207,14 +209,25 @@ class TeradataDestination :
                 .orElse(TeradataConstants.DEFAULT_SCHEMA_NAME)
         val jdbcUrl = String.format("jdbc:teradata://%s/", config[JdbcUtils.HOST_KEY].asText())
 
+        var userName: String? = null
+        var password: String? = null
+        if (config.has(TeradataConstants.LOG_MECH) && config.get(TeradataConstants.LOG_MECH).has(TeradataConstants.AUTH_TYPE)
+            && config.get(TeradataConstants.LOG_MECH).get(TeradataConstants.AUTH_TYPE).asText() != TeradataConstants.BROWSER_LOG_MECH) {
+            userName = config.get(TeradataConstants.LOG_MECH).get(JdbcUtils.USERNAME_KEY).asText()
+            password = config.get(TeradataConstants.LOG_MECH).get(JdbcUtils.PASSWORD_KEY).asText()
+        }
+
         val configBuilder =
             ImmutableMap.builder<Any, Any>()
-                .put(JdbcUtils.USERNAME_KEY, config[JdbcUtils.USERNAME_KEY].asText())
                 .put(JdbcUtils.JDBC_URL_KEY, jdbcUrl)
                 .put(JdbcUtils.SCHEMA_KEY, schema)
 
-        if (config.has(JdbcUtils.PASSWORD_KEY)) {
-            configBuilder.put(JdbcUtils.PASSWORD_KEY, config[JdbcUtils.PASSWORD_KEY].asText())
+        if (userName != null) {
+            configBuilder.put(JdbcUtils.USERNAME_KEY, userName)
+        }
+
+        if (password != null) {
+            configBuilder.put(JdbcUtils.PASSWORD_KEY, password)
         }
         if (config.has(JdbcUtils.JDBC_URL_PARAMS_KEY)) {
             configBuilder.put(
