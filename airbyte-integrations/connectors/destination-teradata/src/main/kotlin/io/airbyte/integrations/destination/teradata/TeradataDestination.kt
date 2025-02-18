@@ -211,8 +211,12 @@ class TeradataDestination :
 
         var userName: String? = null
         var password: String? = null
-        if (config.has(TeradataConstants.LOG_MECH) && config.get(TeradataConstants.LOG_MECH).has(TeradataConstants.AUTH_TYPE)
-            && config.get(TeradataConstants.LOG_MECH).get(TeradataConstants.AUTH_TYPE).asText() != TeradataConstants.BROWSER_LOG_MECH) {
+        if (
+            config.has(TeradataConstants.LOG_MECH) &&
+                config.get(TeradataConstants.LOG_MECH).has(TeradataConstants.AUTH_TYPE) &&
+                config.get(TeradataConstants.LOG_MECH).get(TeradataConstants.AUTH_TYPE).asText() !=
+                    TeradataConstants.BROWSER_LOG_MECH
+        ) {
             userName = config.get(TeradataConstants.LOG_MECH).get(JdbcUtils.USERNAME_KEY).asText()
             password = config.get(TeradataConstants.LOG_MECH).get(JdbcUtils.PASSWORD_KEY).asText()
         }
