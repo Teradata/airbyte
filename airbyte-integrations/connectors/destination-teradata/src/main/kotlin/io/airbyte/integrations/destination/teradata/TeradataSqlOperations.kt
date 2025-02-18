@@ -1,6 +1,7 @@
 /*
- * Copyright (c) 2023 Airbyte, Inc., all rights reserved.
+ * Copyright (c) 2024 Airbyte, Inc., all rights reserved.
  */
+
 package io.airbyte.integrations.destination.teradata
 
 import io.airbyte.cdk.db.jdbc.JdbcDatabase
@@ -25,7 +26,6 @@ import org.slf4j.LoggerFactory
  * transactions.
  */
 class TeradataSqlOperations : JdbcSqlOperations() {
-    @Throws(SQLException::class)
     /**
      * Inserts a list of records into a specified table in the Teradata database.
      *
@@ -35,7 +35,8 @@ class TeradataSqlOperations : JdbcSqlOperations() {
      * @param tableName The name of the table where records will be inserted.
      * @throws SQLException If an SQL error occurs during the insert operation.
      */
-    public override fun insertRecordsInternal(
+    @Throws(SQLException::class)
+    override fun insertRecordsInternal(
         database: JdbcDatabase,
         records: List<AirbyteRecordMessage>,
         schemaName: String,
@@ -55,38 +56,19 @@ class TeradataSqlOperations : JdbcSqlOperations() {
             )
         database.execute { con: Connection ->
             try {
-                val pstmt = con.prepareStatement(insertQueryComponent)
+                con.prepareStatement(insertQueryComponent).use { pstmt ->
+                    for (record in records) {
+                        val uuid = UUID.randomUUID().toString()
+                        val jsonData = Jsons.serialize(formatData(record.data))
+                        val emittedAt = Timestamp.from(Instant.ofEpochMilli(record.emittedAt))
 
-                for (record in records) {
-                    val uuid = UUID.randomUUID().toString()
-                    val jsonData =
-                        Jsons.serialize(
-                            formatData(record.data),
-                        )
-                    val emittedAt = Timestamp.from(Instant.ofEpochMilli(record.emittedAt))
-                    LOGGER.info(
-                        "uuid: $uuid",
-                    )
-                    LOGGER.info(
-                        "jsonData: $jsonData",
-                    )
-                    LOGGER.info(
-                        "emittedAt: $emittedAt",
-                    )
-                    var i = 0
-                    pstmt.setString(++i, uuid)
-                    pstmt.setObject(
-                        ++i,
-                        JSONStruct(
-                            "JSON",
-                            arrayOf(jsonData),
-                        ),
-                    )
-                    pstmt.setTimestamp(++i, emittedAt)
-                    pstmt.addBatch()
+                        pstmt.setString(1, uuid)
+                        pstmt.setObject(2, JSONStruct("JSON", arrayOf(jsonData)))
+                        pstmt.setTimestamp(3, emittedAt)
+                        pstmt.addBatch()
+                    }
+                    pstmt.executeBatch()
                 }
-
-                pstmt.executeBatch()
             } catch (se: SQLException) {
                 handleSQLException(se)
             } catch (e: Exception) {
@@ -99,7 +81,6 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         }
     }
 
-    /** Handles SQL exception */
     private fun handleSQLException(se: SQLException) {
         var ex: SQLException? = se
         val action = "inserting records to staging table"
@@ -110,7 +91,6 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         AirbyteTraceMessageUtility.emitSystemErrorTrace(se, "Connector failed during $action")
         throw RuntimeException(se)
     }
-
     /**
      * Creates a schema in the Teradata database if it does not already exist.
      *
@@ -129,9 +109,7 @@ class TeradataSqlOperations : JdbcSqlOperations() {
             )
         } catch (e: SQLException) {
             if (e.message!!.contains("already exists")) {
-                LOGGER.warn(
-                    "Database $schemaName already exists.",
-                )
+                LOGGER.warn("Database $schemaName already exists.")
             } else {
                 AirbyteTraceMessageUtility.emitSystemErrorTrace(
                     e,
@@ -159,9 +137,7 @@ class TeradataSqlOperations : JdbcSqlOperations() {
             database.execute(createTableQuery(database, schemaName, tableName))
         } catch (e: SQLException) {
             if (e.message!!.contains("already exists")) {
-                LOGGER.warn(
-                    "Table $schemaName.$tableName already exists.",
-                )
+                LOGGER.warn("Table $schemaName.$tableName already exists.")
             } else {
                 AirbyteTraceMessageUtility.emitSystemErrorTrace(
                     e,
@@ -238,7 +214,6 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         return ""
     }
 
-    /** Drops given table */
     private fun dropTableIfExistsQueryInternal(schemaName: String, tableName: String): String {
         try {
             return String.format("DROP TABLE  %s.%s;\n", schemaName, tableName)
@@ -270,13 +245,11 @@ class TeradataSqlOperations : JdbcSqlOperations() {
                 e,
                 "Connector failed while executing queries : $appendedQueries",
             )
+            throw e
         }
     }
 
     companion object {
-        private val LOGGER: Logger =
-            LoggerFactory.getLogger(
-                TeradataSqlOperations::class.java,
-            )
+        private val LOGGER: Logger = LoggerFactory.getLogger(TeradataSqlOperations::class.java)
     }
 }

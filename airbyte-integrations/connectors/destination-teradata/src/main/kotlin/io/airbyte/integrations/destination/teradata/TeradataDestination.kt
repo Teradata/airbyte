@@ -45,18 +45,14 @@ class TeradataDestination :
      * @return The DataSource object for the Teradata connection.
      */
     override fun getDataSource(config: JsonNode): DataSource {
-        val jdbcConfig = this.toJdbcConfig(config)
+        val jdbcConfig = toJdbcConfig(config)
         val dataSource =
             DataSourceFactory.create(
-                if (jdbcConfig.has(JdbcUtils.USERNAME_KEY))
-                    jdbcConfig[JdbcUtils.USERNAME_KEY].asText()
-                else null,
-                if (jdbcConfig.has(JdbcUtils.PASSWORD_KEY))
-                    jdbcConfig[JdbcUtils.PASSWORD_KEY].asText()
-                else null,
+                jdbcConfig[JdbcUtils.USERNAME_KEY]?.asText(),
+                jdbcConfig[JdbcUtils.PASSWORD_KEY]?.asText(),
                 TeradataConstants.DRIVER_CLASS,
                 jdbcConfig[JdbcUtils.JDBC_URL_KEY].asText(),
-                this.getConnectionProperties(config),
+                getConnectionProperties(config)
             )
         // set session query band
         setQueryBand(getDatabase(dataSource))
@@ -137,7 +133,10 @@ class TeradataDestination :
                     additionalParameters[TeradataConstants.PARAM_SSLCA] =
                         TeradataConstants.CA_CERTIFICATE
                 } catch (ioe: IOException) {
-                    throw RuntimeException("Failed to create certificate file", ioe)
+                    throw RuntimeException(
+                        "Failed to create ca certificate file for verify_ca and verify_full SSL Mode",
+                        ioe
+                    )
                 }
             }
         }
@@ -203,43 +202,22 @@ class TeradataDestination :
      * @return The converted JsonNode containing JDBC configuration.
      */
     override fun toJdbcConfig(config: JsonNode): JsonNode {
-        val schema =
-            Optional.ofNullable(config[JdbcUtils.SCHEMA_KEY])
-                .map { obj: JsonNode -> obj.asText() }
-                .orElse(TeradataConstants.DEFAULT_SCHEMA_NAME)
+        val schema = config[JdbcUtils.SCHEMA_KEY]?.asText() ?: TeradataConstants.DEFAULT_SCHEMA_NAME
         val jdbcUrl = String.format("jdbc:teradata://%s/", config[JdbcUtils.HOST_KEY].asText())
 
-        var userName: String? = null
-        var password: String? = null
-        if (
-            config.has(TeradataConstants.LOG_MECH) &&
-                config.get(TeradataConstants.LOG_MECH).has(TeradataConstants.AUTH_TYPE) &&
-                config.get(TeradataConstants.LOG_MECH).get(TeradataConstants.AUTH_TYPE).asText() !=
-                    TeradataConstants.BROWSER_LOG_MECH
-        ) {
-            userName = config.get(TeradataConstants.LOG_MECH).get(JdbcUtils.USERNAME_KEY).asText()
-            password = config.get(TeradataConstants.LOG_MECH).get(JdbcUtils.PASSWORD_KEY).asText()
-        }
+        val userName = config[TeradataConstants.LOG_MECH]?.get(JdbcUtils.USERNAME_KEY)?.asText()
+        val password = config[TeradataConstants.LOG_MECH]?.get(JdbcUtils.PASSWORD_KEY)?.asText()
 
         val configBuilder =
             ImmutableMap.builder<Any, Any>()
                 .put(JdbcUtils.JDBC_URL_KEY, jdbcUrl)
                 .put(JdbcUtils.SCHEMA_KEY, schema)
 
-        if (userName != null) {
-            configBuilder.put(JdbcUtils.USERNAME_KEY, userName)
+        userName?.let { configBuilder.put(JdbcUtils.USERNAME_KEY, it) }
+        password?.let { configBuilder.put(JdbcUtils.PASSWORD_KEY, it) }
+        config[JdbcUtils.JDBC_URL_PARAMS_KEY]?.asText()?.let {
+            configBuilder.put(JdbcUtils.JDBC_URL_PARAMS_KEY, it)
         }
-
-        if (password != null) {
-            configBuilder.put(JdbcUtils.PASSWORD_KEY, password)
-        }
-        if (config.has(JdbcUtils.JDBC_URL_PARAMS_KEY)) {
-            configBuilder.put(
-                JdbcUtils.JDBC_URL_PARAMS_KEY,
-                config[JdbcUtils.JDBC_URL_PARAMS_KEY].asText(),
-            )
-        }
-
         return Jsons.jsonNode(configBuilder.build())
     }
 
