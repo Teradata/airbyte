@@ -16,6 +16,8 @@ import io.airbyte.integrations.base.destination.typing_deduping.Struct
 import io.airbyte.integrations.base.destination.typing_deduping.Union
 import io.airbyte.integrations.base.destination.typing_deduping.UnsupportedOneOf
 import io.airbyte.integrations.base.destination.typing_deduping.migrators.MinimumDestinationState
+import io.airbyte.integrations.destination.teradata.TeradataSqlOperations
+import io.airbyte.integrations.destination.teradata.TeradataSqlOperations.Companion
 import io.airbyte.protocol.models.v0.AirbyteStreamNameNamespacePair
 import java.sql.SQLException
 import java.time.OffsetDateTime
@@ -76,9 +78,10 @@ class TeradataDestinationHandler(
     }
 
 
-   /* @Throws(Exception::class)
+    @Throws(Exception::class)
     override fun isFinalTableEmpty(id: StreamId): Boolean {
-        val query = !jdbcDatabase.queryBoolean(
+        return try {
+            val existsFlag = !jdbcDatabase.queryBoolean(
             dslContext
                 .select(
                     DSL.case_()
@@ -94,9 +97,17 @@ class TeradataDestinationHandler(
                 )
                 .getSQL(ParamType.INLINED),
         )
-        LOGGER.info("Satish - TeradataDestinationHandler - isFinalTableEmpty - query - {}", query)
-        return query
-    } */
+        LOGGER.info("Satish - TeradataDestinationHandler - isFinalTableEmpty - query - {}", existsFlag)
+        return existsFlag
+        } catch (e: SQLException) {
+            if (e.message!!.contains("does not exist")) {
+                LOGGER.warn(
+                    "Table $id.finalNamespace.$id.finalNamespace does not exists.",
+                )
+            }
+            true
+        }
+    }
 
 
 

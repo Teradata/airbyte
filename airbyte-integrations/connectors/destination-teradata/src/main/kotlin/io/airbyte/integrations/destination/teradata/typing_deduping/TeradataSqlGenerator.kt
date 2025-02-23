@@ -1,5 +1,7 @@
 package io.airbyte.integrations.destination.teradata.typing_deduping
 
+import com.google.common.annotations.VisibleForTesting
+import io.airbyte.cdk.integrations.base.JavaBaseConstants
 import io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_EXTRACTED_AT
 import io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_ID
 import io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_AB_LOADED_AT
@@ -9,23 +11,30 @@ import io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_DATA
 import io.airbyte.cdk.integrations.base.JavaBaseConstants.COLUMN_NAME_EMITTED_AT
 import io.airbyte.cdk.integrations.destination.StandardNameTransformer
 import io.airbyte.cdk.integrations.destination.jdbc.typing_deduping.JdbcSqlGenerator
+import io.airbyte.cdk.integrations.destination.jdbc.typing_deduping.JdbcSqlGenerator.Companion
 import io.airbyte.integrations.base.destination.typing_deduping.AirbyteProtocolType
 import io.airbyte.integrations.base.destination.typing_deduping.AirbyteType
 import io.airbyte.integrations.base.destination.typing_deduping.ColumnId
+import io.airbyte.integrations.base.destination.typing_deduping.ImportType
 import io.airbyte.integrations.base.destination.typing_deduping.Sql
 import io.airbyte.integrations.base.destination.typing_deduping.Sql.Companion.of
 import io.airbyte.integrations.base.destination.typing_deduping.Sql.Companion.separately
 import io.airbyte.integrations.base.destination.typing_deduping.Sql.Companion.transactionally
 import io.airbyte.integrations.base.destination.typing_deduping.StreamConfig
 import io.airbyte.integrations.base.destination.typing_deduping.StreamId
+import java.time.Instant
 import java.util.*
 import java.util.stream.Collectors
 import org.jooq.Condition
 import org.jooq.DataType
 import org.jooq.Field
 import org.jooq.Name
+import org.jooq.Record
 import org.jooq.SQLDialect
+import org.jooq.SelectConditionStep
 import org.jooq.SortField
+import org.jooq.conf.ParamType
+import org.jooq.impl.DSL
 import org.jooq.impl.DSL.field
 import org.jooq.impl.DSL.name
 import org.jooq.impl.DSL.quotedName
@@ -152,7 +161,7 @@ class TeradataSqlGenerator(
                         )) + ".JSONExtract('$." + field(key.originalName)) + "') as " + toDialectType(
                             value,
                         ) + "))" + "-2) "
-                            + "else cast(" + name(COLUMN_NAME_DATA)) + ".JSONExtractValue('$." + field(
+                            + "else cast(" + name(COLUMN_NAME_DATA)) + ".JSONExtractLargeValue('$." + field(
                             key.originalName,
                         )) + "') as " + toDialectType(value) + ") END"),
                     ).`as`(key.name),
@@ -190,7 +199,8 @@ class TeradataSqlGenerator(
 
 
         cursorField.ifPresent { columnId ->
-            orderedFields.add(field(quotedName(columnId.name)).desc().nullsLast(),
+            orderedFields.add(
+                field(quotedName(columnId.name)).desc().nullsLast(),
             )
         }
         LOGGER.info("Satish - TeradataSqlGenerator - getRowNumber - cursorField - {}", cursorField)
@@ -202,14 +212,17 @@ class TeradataSqlGenerator(
             .partitionBy(primaryKeyFields)
             .orderBy(orderedFields)
             .`as`(ROW_NUMBER_COLUMN_NAME)
-        LOGGER.info("Satish - TeradataSqlGenerator - getRowNumber - query - {}", query)
+        LOGGER.info("Satish - TeradataSqlGenerator - getRowNumber - query - {}", rowNumber()
+            .over()
+            .partitionBy(primaryKeyFields)
+            .orderBy(orderedFields))
         return query
     }
 
     override fun toDialectType(airbyteProtocolType: AirbyteProtocolType): DataType<*> {
         LOGGER.info("Satish - TeradataSqlGenerator - toDialectType - airbyteProtocolType - {} ", airbyteProtocolType)
         val s = when (airbyteProtocolType) {
-            AirbyteProtocolType.STRING -> SQLDataType.VARCHAR(64000)
+            AirbyteProtocolType.STRING -> SQLDataType.VARCHAR(10000)
             AirbyteProtocolType.BOOLEAN -> SQLDataType.BOOLEAN
             AirbyteProtocolType.INTEGER -> SQLDataType.INTEGER
             AirbyteProtocolType.NUMBER -> SQLDataType.FLOAT
@@ -309,56 +322,47 @@ class TeradataSqlGenerator(
     }
 
 
-   /* override fun insertAndDeleteTransaction(
+    override fun insertAndDeleteTransaction(
         streamConfig: StreamConfig,
         finalSuffix: String?,
         minRawTimestamp: Optional<Instant>,
         useExpensiveSaferCasting: Boolean
     ): Sql {
-        val finalSchema: String = streamConfig.id.finalNamespace
-        val finalTable: String = streamConfig.id.finalName +
-            (finalSuffix?.lowercase(Locale.getDefault()) ?: "")
-        val rawSchema: String = streamConfig.id.rawNamespace
-        val rawTable: String = streamConfig.id.rawName
+        val finalSchema = streamConfig.id.finalNamespace
+        val finalTable =
+            streamConfig.id.finalName + (finalSuffix?.lowercase(Locale.getDefault()) ?: "")
+        val rawSchema = streamConfig.id.rawNamespace
+        val rawTable = streamConfig.id.rawName
 
         // Poor person's guarantee of ordering of fields by using same source of ordered list of
         // columns to
         // generate fields.
         val rawTableRowsWithCast =
-            name(TYPING_CTE_ALIAS).`as`<Record>(
-                selectFromRawTable(
-                    rawSchema,
-                    rawTable,
-                    streamConfig.columns,
-                    getFinalTableMetaColumns(false),
-                    rawTableCondition(
-                        streamConfig.destinationSyncMode,
-                        streamConfig.columns.containsKey(cdcDeletedAtColumn),
-                        minRawTimestamp,
+            DSL.name(TYPING_CTE_ALIAS)
+                .`as`(
+                    selectFromRawTable(
+                        rawSchema,
+                        rawTable,
+                        streamConfig.columns,
+                        getFinalTableMetaColumns(false),
+                        rawTableCondition(
+                            streamConfig.postImportAction,
+                            streamConfig.columns.containsKey(cdcDeletedAtColumn),
+                            minRawTimestamp,
+                        ),
+                        useExpensiveSaferCasting,
                     ),
-                    useExpensiveSaferCasting,
-                ),
-            )
-        LOGGER.info("Satish - TeradataSqlGenerator - insertAndDeleteTransaction - rawTableRowsWithCast: {}", rawTableRowsWithCast)
-        val finalTableFields = buildFinalTableFields(
-            streamConfig.columns,
-            getFinalTableMetaColumns(true),
-        )
-        LOGGER.info("Satish - TeradataSqlGenerator - insertAndDeleteTransaction - finalTableFields: {}", finalTableFields)
-        val rowNumber = getRowNumber(
-            streamConfig.primaryKey,
-            streamConfig.cursor,
-        )
-        LOGGER.info("Satish - TeradataSqlGenerator - insertAndDeleteTransaction - rowNumber: {}", rowNumber)
+                )
+
+        LOGGER.info("Satish - insertAndDeleteTransaction - rawTableRowsWithCast - {}", rawTableRowsWithCast)
+        val finalTableFields =
+            buildFinalTableFields(streamConfig.columns, getFinalTableMetaColumns(true))
+        LOGGER.info("Satish - insertAndDeleteTransaction - finalTableFields - {}", finalTableFields)
+        val rowNumber = getRowNumber(streamConfig.primaryKey, streamConfig.cursor)
         val filteredRows =
-            name(NUMBERED_ROWS_CTE_ALIAS).`as`(
-                DSL.select(finalTableFields)
-                    .select(rowNumber)
-                    .from(rawTableRowsWithCast),
-            )
-        LOGGER.info("Satish - TeradataSqlGenerator - insertAndDeleteTransaction - filteredRows: {}", filteredRows)
-
-
+            DSL.name(NUMBERED_ROWS_CTE_ALIAS)
+                .`as`(DSL.select(finalTableFields).select(rowNumber).from(rawTableRowsWithCast))
+        LOGGER.info("Satish - insertAndDeleteTransaction - filteredRows - {}", filteredRows)
         // Used for append-dedupe mode.
         val insertStmtWithDedupe =
             insertIntoFinalTable(
@@ -373,14 +377,12 @@ class TeradataSqlGenerator(
                         .select(finalTableFields)
                         .from(filteredRows)
                         .where(
-                            field<Int>(
-                                name(ROW_NUMBER_COLUMN_NAME),
-                                Int::class.java,
-                            ).eq(1),
-                        ),
+                            DSL.field(DSL.name(ROW_NUMBER_COLUMN_NAME), Int::class.java).eq(1),
+                        ), // Can refer by CTE.field but no use since we don't strongly type
+                    // them.
                 )
                 .getSQL(ParamType.INLINED)
-        LOGGER.info("Satish - TeradataSqlGenerator - insertAndDeleteTransaction - insertStmtWithDedupe: {}", insertStmtWithDedupe)
+        LOGGER.info("Satish - insertAndDeleteTransaction - insertStmtWithDedupe - {}", insertStmtWithDedupe)
         // Used for append and overwrite modes.
         val insertStmt =
             insertIntoFinalTable(
@@ -395,24 +397,23 @@ class TeradataSqlGenerator(
                         .from(rawTableRowsWithCast),
                 )
                 .getSQL(ParamType.INLINED)
-        LOGGER.info("Satish - TeradataSqlGenerator - insertAndDeleteTransaction - insertStmt: {}", insertStmt)
-
-        val deleteStmt = deleteFromFinalTable(
-            finalSchema,
-            finalTable,
-            streamConfig.primaryKey,
-            streamConfig.cursor,
-        )
-        LOGGER.info("Satish - TeradataSqlGenerator - insertAndDeleteTransaction - deleteStmt: {}", deleteStmt)
+        LOGGER.info("Satish - insertAndDeleteTransaction - insertStmt - {}", insertStmt)
+        val deleteStmt =
+            deleteFromFinalTable(
+                finalSchema,
+                finalTable,
+                streamConfig.primaryKey,
+                streamConfig.cursor,
+            )
+        LOGGER.info("Satish - insertAndDeleteTransaction - deleteStmt - {}", deleteStmt)
         val deleteCdcDeletesStmt =
             if (streamConfig.columns.containsKey(cdcDeletedAtColumn))
                 deleteFromFinalTableCdcDeletes(finalSchema, finalTable)
-            else
-                ""
-        LOGGER.info("Satish - TeradataSqlGenerator - insertAndDeleteTransaction - deleteCdcDeletesStmt: {}", deleteCdcDeletesStmt)
+            else ""
+        LOGGER.info("Satish - insertAndDeleteTransaction - deleteCdcDeletesStmt - {}", deleteCdcDeletesStmt)
         val checkpointStmt = checkpointRawTable(rawSchema, rawTable, minRawTimestamp)
-        LOGGER.info("Satish - TeradataSqlGenerator - insertAndDeleteTransaction - checkpointStmt: {}", checkpointStmt)
-        if (streamConfig.destinationSyncMode !== DestinationSyncMode.APPEND_DEDUP) {
+        LOGGER.info("Satish - insertAndDeleteTransaction - checkpointStmt - {}", checkpointStmt)
+        if (streamConfig.postImportAction == ImportType.APPEND) {
             return transactionally(insertStmt, checkpointStmt)
         }
 
@@ -424,7 +425,65 @@ class TeradataSqlGenerator(
             checkpointStmt,
         )
     }
-*/
+
+    private fun checkpointRawTable(
+        schemaName: String,
+        tableName: String,
+        minRawTimestamp: Optional<Instant>
+    ): String {
+        val dsl = dslContext
+        var extractedAtCondition = DSL.noCondition()
+        if (minRawTimestamp.isPresent) {
+            extractedAtCondition =
+                extractedAtCondition.and(
+                    DSL.field(DSL.name(JavaBaseConstants.COLUMN_NAME_AB_EXTRACTED_AT))
+                        .gt(formatTimestampLiteral(minRawTimestamp.get())),
+                )
+        }
+        return dsl.update<Record>(DSL.table(DSL.quotedName(schemaName, tableName)))
+            .set<Any>(
+                DSL.field(DSL.quotedName(JavaBaseConstants.COLUMN_NAME_AB_LOADED_AT)),
+                currentTimestamp(),
+            )
+            .where(DSL.field(DSL.quotedName(JavaBaseConstants.COLUMN_NAME_AB_LOADED_AT)).isNull())
+            .and(extractedAtCondition)
+            .getSQL(ParamType.INLINED)
+    }
+
+
+    private fun deleteFromFinalTableCdcDeletes(schema: String, tableName: String): String {
+        val dsl = dslContext
+        return dsl.deleteFrom(DSL.table(DSL.quotedName(schema, tableName)))
+            .where(DSL.field(DSL.quotedName(cdcDeletedAtColumn.name)).isNotNull())
+            .getSQL(ParamType.INLINED)
+    }
+
+    private fun deleteFromFinalTable(
+        schemaName: String,
+        tableName: String,
+        primaryKeys: List<ColumnId>,
+        cursor: Optional<ColumnId>
+    ): String {
+        val dsl = dslContext
+        // Unknown type doesn't play well with where .. in (select..)
+        val airbyteRawId: Field<Any> =
+            DSL.field(DSL.quotedName(JavaBaseConstants.COLUMN_NAME_AB_RAW_ID))
+        val rowNumber = getRowNumber(primaryKeys, cursor)
+        return dsl.deleteFrom(DSL.table(DSL.quotedName(schemaName, tableName)))
+            .where(
+                airbyteRawId.`in`(
+                    DSL.select(airbyteRawId)
+                        .from(
+                            DSL.select(airbyteRawId, rowNumber)
+                                .from(DSL.table(DSL.quotedName(schemaName, tableName)))
+                                .asTable("airbyte_ids"),
+                        )
+                        .where(DSL.field(DSL.name(ROW_NUMBER_COLUMN_NAME)).ne(1)),
+                ),
+            )
+            .getSQL(ParamType.INLINED)
+    }
+
 
     companion object {
 
