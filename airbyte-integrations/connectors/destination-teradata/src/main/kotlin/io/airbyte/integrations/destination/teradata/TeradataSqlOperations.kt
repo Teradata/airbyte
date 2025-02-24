@@ -144,7 +144,7 @@ class TeradataSqlOperations : JdbcSqlOperations() {
             database,
             listOf(
                 "DROP TABLE $rawNamespace.$rawName",
-                "RENAME $rawNamespace.$tmpName TO $rawNamespace.$rawName"
+                "RENAME TABLE $rawNamespace.$tmpName TO $rawNamespace.$rawName"
             )
         )
     }
