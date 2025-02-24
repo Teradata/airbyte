@@ -9,6 +9,7 @@ import io.airbyte.cdk.integrations.base.JavaBaseConstants
 import io.airbyte.cdk.integrations.destination.async.model.PartialAirbyteMessage
 import io.airbyte.cdk.integrations.destination.jdbc.JdbcSqlOperations
 import io.airbyte.commons.json.Jsons
+import io.airbyte.integrations.base.destination.operation.AbstractStreamOperation
 import io.airbyte.integrations.destination.teradata.util.JSONStruct
 import java.sql.SQLException
 import java.sql.Timestamp
@@ -138,7 +139,11 @@ class TeradataSqlOperations : JdbcSqlOperations() {
     }
 
     override fun overwriteRawTable(database: JdbcDatabase, rawNamespace: String, rawName: String) {
-        TODO("Not yet implemented")
+        val tmpName = rawName + AbstractStreamOperation.TMP_TABLE_SUFFIX
+        executeTransaction(database, listOf(
+            "DROP TABLE $rawNamespace.$rawName",
+            "RENAME $rawNamespace.$tmpName TO $rawNamespace.$rawName"
+        ))
     }
 
     /**
@@ -173,10 +178,11 @@ class TeradataSqlOperations : JdbcSqlOperations() {
                 JavaBaseConstants.COLUMN_NAME_AB_META,
                 JavaBaseConstants.COLUMN_NAME_AB_GENERATION_ID
             )
+        val batchSize = 5000
         database.execute { con ->
             try {
                 val stmt = con.prepareStatement(insertQueryComponent)
-
+                var batchCount = 0
                 for (record in records) {
                     val uuid = UUID.randomUUID().toString()
                     val jsonData = record.serialized
@@ -202,8 +208,15 @@ class TeradataSqlOperations : JdbcSqlOperations() {
                     stmt.setString(++i, airbyteMeta)
                     stmt.setLong(++i, generationId)
                     stmt.addBatch()
+                    batchCount++
+                    if (batchCount >= batchSize) {
+                        stmt.executeBatch()
+                        batchCount = 0
+                    }
                 }
-                stmt.executeBatch()
+                if (batchCount > 0) {
+                    stmt.executeBatch()
+                }
             } catch (e: Exception) {
                 throw Exception(e)
             }
