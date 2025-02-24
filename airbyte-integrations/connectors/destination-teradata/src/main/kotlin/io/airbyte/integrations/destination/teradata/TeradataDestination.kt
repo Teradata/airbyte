@@ -148,28 +148,72 @@ class TeradataDestination :
         additionalParameters[TeradataConstants.ENCRYPTDATA] = TeradataConstants.ENCRYPTDATA_ON
         return additionalParameters
     }
-
+    /**
+     * Returns a migrator that handles the migration between V1 and V2 versions of the destination.
+     * This method is used to obtain an instance of a `DestinationV1V2Migrator` for migrating
+     * between versions.
+     *
+     * @param database The database instance that is used for the migration.
+     * @param databaseName The name of the database.
+     * @return A `DestinationV1V2Migrator` instance specific to Teradata.
+     */
     override fun getV1V2Migrator(
         database: JdbcDatabase,
         databaseName: String
     ): DestinationV1V2Migrator = TeradataV1V2Migrator(database)
-
+    /**
+     * Returns the database name extracted from the provided configuration. The database name is
+     * derived from the `JdbcUtils.SCHEMA_KEY` key in the JSON configuration.
+     *
+     * @param config The JSON configuration containing database-related information.
+     * @return A string representing the name of the database.
+     */
     override fun getDatabaseName(config: JsonNode): String {
         return config[JdbcUtils.SCHEMA_KEY].asText()
     }
-
+    /**
+     * Returns a SQL generator that is used to generate SQL statements for interacting with the
+     * database. This method provides a Teradata-specific SQL generator.
+     *
+     * @param config The JSON configuration to guide the SQL generation.
+     * @return A `JdbcSqlGenerator` instance that generates SQL statements specific to Teradata.
+     */
     override fun getSqlGenerator(config: JsonNode): JdbcSqlGenerator {
         return TeradataSqlGenerator()
     }
-
+    /**
+     * Returns the SQL operations for handling various SQL-related tasks, such as executing queries
+     * or commands. This method returns the Teradata-specific SQL operations implementation.
+     *
+     * @param config The JSON configuration to guide the SQL operations.
+     * @return A `SqlOperations` instance that provides SQL operations specific to Teradata.
+     */
     override fun getSqlOperations(config: JsonNode): SqlOperations {
         return TeradataSqlOperations()
     }
-
+    /**
+     * Returns a generation handler that is responsible for generating database-related operations
+     * such as schema generation, DDL statements, etc. This method provides a Teradata-specific
+     * generation handler.
+     *
+     * @return A `JdbcGenerationHandler` instance that handles database generation tasks specific to
+     * Teradata.
+     */
     override fun getGenerationHandler(): JdbcGenerationHandler {
         return TeradataGenerationHandler()
     }
-
+    /**
+     * Returns a handler that is used to manage the destination during migration and data
+     * processing. This handler is specific to Teradata and will help with raw table schema
+     * handling, among other tasks.
+     *
+     * @param config The JSON configuration containing database and schema information.
+     * @param databaseName The name of the database.
+     * @param database The database instance used to interact with the destination.
+     * @param rawTableSchema The raw table schema in the destination database.
+     * @return A `JdbcDestinationHandler` that manages the destination database with specific
+     * configurations.
+     */
     override fun getDestinationHandler(
         config: JsonNode,
         databaseName: String,
@@ -183,7 +227,16 @@ class TeradataDestination :
             getGenerationHandler()
         )
     }
-
+    /**
+     * Returns a list of migration objects that perform database migrations. In this case, an empty
+     * list is returned, indicating that no migrations are needed for this particular database.
+     *
+     * @param database The database instance being migrated.
+     * @param databaseName The name of the database being migrated.
+     * @param sqlGenerator The SQL generator used for creating SQL statements during migrations.
+     * @param destinationHandler The handler used to manage the destination during migration.
+     * @return An empty list, as no migrations are specified.
+     */
     override fun getMigrations(
         database: JdbcDatabase,
         databaseName: String,
@@ -192,7 +245,12 @@ class TeradataDestination :
     ): List<Migration<MinimumDestinationState>> {
         return emptyList()
     }
-
+    /**
+     * Indicates whether the destination is considered a V2 destination. This flag can be used to
+     * determine whether the system is operating in a V1 or V2 context.
+     *
+     * @return True if the destination is V2, false otherwise.
+     */
     override val isV2Destination: Boolean
         get() = true
 
