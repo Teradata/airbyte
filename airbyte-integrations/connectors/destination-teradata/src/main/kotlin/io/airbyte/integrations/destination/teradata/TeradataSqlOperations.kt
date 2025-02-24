@@ -17,9 +17,21 @@ import java.util.*
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+/**
+ * The TeradataSqlOperations class is responsible for performing SQL operations on the Teradata
+ * database. It extends the JdbcSqlOperations class to provide functionalities specific to the
+ * Teradata integration, including inserting records, creating schemas and tables, and executing SQL
+ * transactions.
+ */
 class TeradataSqlOperations : JdbcSqlOperations() {
 
-
+    /**
+     * Creates a schema in the Teradata database if it does not already exist.
+     *
+     * @param database The JdbcDatabase instance to interact with the database.
+     * @param schemaName The name of the schema to be created.
+     * @throws Exception If an error occurs while creating the schema.
+     */
     @Throws(Exception::class)
     override fun createSchemaIfNotExists(database: JdbcDatabase?, schemaName: String) {
         try {
@@ -39,7 +51,14 @@ class TeradataSqlOperations : JdbcSqlOperations() {
             }
         }
     }
-
+    /**
+     * Creates a table in the Teradata database if it does not already exist.
+     *
+     * @param database The JdbcDatabase instance to interact with the database.
+     * @param schemaName The name of the schema where the table resides.
+     * @param tableName The name of the table to be created.
+     * @throws SQLException If an SQL error occurs during the creation of the table.
+     */
     @Throws(SQLException::class)
     override fun createTableIfNotExists(
         database: JdbcDatabase,
@@ -58,7 +77,14 @@ class TeradataSqlOperations : JdbcSqlOperations() {
             }
         }
     }
-
+    /**
+     * Constructs the SQL query for creating a new table in the Teradata database.
+     *
+     * @param database The JdbcDatabase instance to interact with the database.
+     * @param schemaName The name of the schema where the table will be created.
+     * @param tableName The name of the table to be created.
+     * @return The SQL query string for creating the table.
+     */
     override fun createTableQuery(
         database: JdbcDatabase?,
         schemaName: String?,
@@ -85,11 +111,22 @@ class TeradataSqlOperations : JdbcSqlOperations() {
             JavaBaseConstants.COLUMN_NAME_AB_META,
             JavaBaseConstants.COLUMN_NAME_AB_GENERATION_ID,
             JavaBaseConstants.COLUMN_NAME_AB_RAW_ID
-            )
+        )
     }
-
+    /**
+     * Drops a specified table from the Teradata database if it exists.
+     *
+     * @param database The JdbcDatabase instance to interact with the database.
+     * @param schemaName The name of the schema where the table resides.
+     * @param tableName The name of the table to be dropped.
+     * @throws SQLException If an SQL error occurs during the drop operation.
+     */
     @Throws(SQLException::class)
-    override fun dropTableIfExists(database: JdbcDatabase, schemaName: String?, tableName: String?) {
+    override fun dropTableIfExists(
+        database: JdbcDatabase,
+        schemaName: String?,
+        tableName: String?
+    ) {
         try {
             database.execute(dropTableIfExistsQueryInternal(schemaName, tableName))
         } catch (e: SQLException) {
@@ -100,14 +137,19 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         }
     }
 
-
-
     override fun overwriteRawTable(database: JdbcDatabase, rawNamespace: String, rawName: String) {
         TODO("Not yet implemented")
     }
 
-
-
+    /**
+     * Inserts a list of records into a specified table in the Teradata database.
+     *
+     * @param database The JdbcDatabase instance to interact with the database.
+     * @param records The list of AirbyteRecordMessage to be inserted.
+     * @param schemaName The name of the schema where the table resides.
+     * @param tableName The name of the table where records will be inserted.
+     * @throws SQLException If an SQL error occurs during the insert operation.
+     */
     override fun insertRecordsInternalV2(
         database: JdbcDatabase,
         records: List<PartialAirbyteMessage>,
@@ -120,15 +162,17 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         if (records.isEmpty()) {
             return
         }
-        val insertQueryComponent = java.lang.String.format(
-            "INSERT INTO %s.%s (%s, %s, %s, %s, %s) VALUES (?, ?, ?, ?, ?)", schemaName, tableName,
-            JavaBaseConstants.COLUMN_NAME_AB_RAW_ID,
-            JavaBaseConstants.COLUMN_NAME_DATA,
-            JavaBaseConstants.COLUMN_NAME_AB_EXTRACTED_AT,
-            JavaBaseConstants.COLUMN_NAME_AB_META,
-            JavaBaseConstants.COLUMN_NAME_AB_GENERATION_ID
-        )
-        LOGGER.info("Satish - TeradataSqlOperations - insertRecordsInternalV2 - insert query - {}", insertQueryComponent)
+        val insertQueryComponent =
+            java.lang.String.format(
+                "INSERT INTO %s.%s (%s, %s, %s, %s, %s) VALUES (?, ?, ?, ?, ?)",
+                schemaName,
+                tableName,
+                JavaBaseConstants.COLUMN_NAME_AB_RAW_ID,
+                JavaBaseConstants.COLUMN_NAME_DATA,
+                JavaBaseConstants.COLUMN_NAME_AB_EXTRACTED_AT,
+                JavaBaseConstants.COLUMN_NAME_AB_META,
+                JavaBaseConstants.COLUMN_NAME_AB_GENERATION_ID
+            )
         database.execute { con ->
             try {
                 val stmt = con.prepareStatement(insertQueryComponent)
@@ -144,7 +188,7 @@ class TeradataSqlOperations : JdbcSqlOperations() {
                         }
                     val extractedAt =
                         Timestamp.from(Instant.ofEpochMilli(record.record!!.emittedAt))
-                    var i = 0;
+                    var i = 0
                     stmt.setString(++i, uuid)
 
                     stmt.setObject(
@@ -158,10 +202,6 @@ class TeradataSqlOperations : JdbcSqlOperations() {
                     stmt.setString(++i, airbyteMeta)
                     stmt.setLong(++i, generationId)
                     stmt.addBatch()
-                    LOGGER.info("Satish - TeradataSqlOperations - insertRecordsInternalV2 - uuid - {}", uuid)
-                    LOGGER.info("Satish - TeradataSqlOperations - insertRecordsInternalV2 - jsonData - {}", jsonData)
-                    LOGGER.info("Satish - TeradataSqlOperations - insertRecordsInternalV2 - airbyteMeta - {}", airbyteMeta)
-                    LOGGER.info("Satish - TeradataSqlOperations - insertRecordsInternalV2 - extractedAt - {}", extractedAt)
                 }
                 stmt.executeBatch()
             } catch (e: Exception) {
@@ -170,7 +210,14 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         }
     }
 
-
+    /**
+     * Constructs the SQL query for truncating a table in the Teradata database.
+     *
+     * @param database The JdbcDatabase instance to interact with the database.
+     * @param schemaName The name of the schema where the table resides.
+     * @param tableName The name of the table to be truncated.
+     * @return The SQL query string for truncating the table.
+     */
     override fun truncateTableQuery(
         database: JdbcDatabase,
         schemaName: String,
@@ -178,7 +225,7 @@ class TeradataSqlOperations : JdbcSqlOperations() {
     ): String {
         try {
             return String.format("DELETE %s.%s ALL;\n", schemaName, tableName)
-        } catch (e: java.lang.Exception) {
+        } catch (e: Exception) {
             AirbyteTraceMessageUtility.emitSystemErrorTrace(
                 e,
                 "Connector failed while truncating table $schemaName.$tableName",
@@ -198,7 +245,13 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         }
         return ""
     }
-
+    /**
+     * Executes a list of SQL queries as a single transaction.
+     *
+     * @param database The JdbcDatabase instance to interact with the database.
+     * @param queries The list of SQL queries to be executed.
+     * @throws Exception If an error occurs during the transaction execution.
+     */
     @Throws(Exception::class)
     override fun executeTransaction(database: JdbcDatabase, queries: List<String>) {
         val appendedQueries = StringBuilder()
@@ -215,12 +268,10 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         }
     }
 
-
-
-
     companion object {
-        private val LOGGER: Logger = LoggerFactory.getLogger(
-            TeradataSqlOperations::class.java,
-        )
+        private val LOGGER: Logger =
+            LoggerFactory.getLogger(
+                TeradataSqlOperations::class.java,
+            )
     }
 }

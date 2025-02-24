@@ -17,7 +17,8 @@ class JSONStruct
  *
  * @param sqlTypeName The SQL type name.
  * @param attributes The attributes of the JSONStruct.
- */(private val m_sqlTypeName: String, private val m_attributes: Array<String?>) : Struct {
+ */
+(private val m_sqlTypeName: String, private val m_attributes: Array<String?>) : Struct {
     /**
      * Retrieves the attributes of this JSONStruct.
      *

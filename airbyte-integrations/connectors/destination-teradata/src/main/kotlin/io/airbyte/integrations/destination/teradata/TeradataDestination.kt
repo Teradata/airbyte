@@ -5,19 +5,20 @@ package io.airbyte.integrations.destination.teradata
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.google.common.collect.ImmutableMap
+import io.airbyte.cdk.db.factory.DataSourceFactory
+import io.airbyte.cdk.db.jdbc.DefaultJdbcDatabase
 import io.airbyte.cdk.db.jdbc.JdbcDatabase
 import io.airbyte.cdk.db.jdbc.JdbcUtils
 import io.airbyte.cdk.integrations.base.Destination
 import io.airbyte.cdk.integrations.base.IntegrationRunner
 import io.airbyte.cdk.integrations.destination.StandardNameTransformer
 import io.airbyte.cdk.integrations.destination.jdbc.AbstractJdbcDestination
-import io.airbyte.cdk.integrations.destination.jdbc.JdbcBufferedConsumerFactory
 import io.airbyte.cdk.integrations.destination.jdbc.JdbcGenerationHandler
 import io.airbyte.cdk.integrations.destination.jdbc.SqlOperations
 import io.airbyte.cdk.integrations.destination.jdbc.typing_deduping.JdbcDestinationHandler
 import io.airbyte.cdk.integrations.destination.jdbc.typing_deduping.JdbcSqlGenerator
-import io.airbyte.cdk.integrations.destination.jdbc.typing_deduping.JdbcV1V2Migrator
 import io.airbyte.commons.json.Jsons
+import io.airbyte.commons.map.MoreMaps
 import io.airbyte.integrations.base.destination.typing_deduping.DestinationHandler
 import io.airbyte.integrations.base.destination.typing_deduping.DestinationV1V2Migrator
 import io.airbyte.integrations.base.destination.typing_deduping.SqlGenerator
@@ -27,35 +28,124 @@ import io.airbyte.integrations.destination.teradata.typing_deduping.TeradataDest
 import io.airbyte.integrations.destination.teradata.typing_deduping.TeradataGenerationHandler
 import io.airbyte.integrations.destination.teradata.typing_deduping.TeradataSqlGenerator
 import io.airbyte.integrations.destination.teradata.typing_deduping.TeradataV1V2Migrator
+import io.airbyte.integrations.destination.teradata.util.TeradataConstants
 import java.io.IOException
 import java.io.PrintWriter
 import java.nio.charset.StandardCharsets
-import java.util.Optional
+import java.sql.SQLException
+import java.util.*
+import java.util.regex.Pattern
+import javax.sql.DataSource
 import kotlin.collections.HashMap
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
+/**
+ * The TeradataDestination class is responsible for handling the connection to the Teradata database
+ * as destination from Airbyte. It extends the AbstractJdbcDestination class and implements the
+ * Destination interface, facilitating the configuration and management of database interactions,
+ * including setting a query band.
+ */
 class TeradataDestination :
     AbstractJdbcDestination<MinimumDestinationState>(
-        DRIVER_CLASS,
+        TeradataConstants.DRIVER_CLASS,
         StandardNameTransformer()
     ),
     Destination {
+    /**
+     * Retrieves the data source for the Teradata database connection.
+     *
+     * @param config The configuration settings as a JsonNode.
+     * @return The DataSource object for the Teradata connection.
+     */
+    override fun getDataSource(config: JsonNode): DataSource {
+        val jdbcConfig = toJdbcConfig(config)
+        val connectionProperties = getConnectionProperties(config)
+        val dataSource =
+            DataSourceFactory.create(
+                jdbcConfig[JdbcUtils.USERNAME_KEY]?.asText(),
+                jdbcConfig[JdbcUtils.PASSWORD_KEY]?.asText(),
+                TeradataConstants.DRIVER_CLASS,
+                jdbcConfig[JdbcUtils.JDBC_URL_KEY].asText(),
+                connectionProperties,
+                getConnectionTimeout(connectionProperties)
+            )
+        // set session query band
+        setQueryBand(getDatabase(dataSource))
+        return dataSource
+    }
+
+    override fun getConnectionProperties(config: JsonNode): Map<String, String> {
+        return MoreMaps.merge(appendLogMech(config), super.getConnectionProperties(config))
+    }
+    /** Appends Logging Mechanism to JDBC URL */
+    private fun appendLogMech(config: JsonNode): Map<String, String> {
+        val logmechParams: MutableMap<String, String> = HashMap()
+        if (
+            config.has(TeradataConstants.LOG_MECH) &&
+                config.get(TeradataConstants.LOG_MECH).has(TeradataConstants.AUTH_TYPE) &&
+                config.get(TeradataConstants.LOG_MECH).get(TeradataConstants.AUTH_TYPE).asText() !=
+                    TeradataConstants.TD2_LOG_MECH
+        ) {
+            logmechParams[TeradataConstants.LOG_MECH] =
+                config.get(TeradataConstants.LOG_MECH).get(TeradataConstants.AUTH_TYPE).asText()
+        }
+        return logmechParams
+    }
+    /**
+     * Retrieves the JdbcDatabase instance based on the provided DataSource.
+     *
+     * @param dataSource The DataSource to create the JdbcDatabase from.
+     * @return The JdbcDatabase instance.
+     */
+    override fun getDatabase(dataSource: DataSource): JdbcDatabase {
+        return DefaultJdbcDatabase(dataSource)
+    }
+    /**
+     * Sets the Teradata session query band to identify the source of SQL requests originating from
+     * Airbyte.
+     *
+     * @param jdbcDatabase The JdbcDatabase instance for which to set the query band.
+     */
+    private fun setQueryBand(jdbcDatabase: JdbcDatabase) {
+        val setQueryBandSql =
+            TeradataConstants.QUERY_BAND_SET +
+                Companion.queryBand +
+                TeradataConstants.QUERY_BAND_SESSION
+        try {
+            jdbcDatabase.execute(setQueryBandSql)
+        } catch (ex: SQLException) {
+            LOGGER.error("Error occurred while setting session query band: {}", ex.message, ex)
+        }
+    }
+    /**
+     * Retrieves the default connection properties for the Teradata database based on the provided
+     * configuration.
+     *
+     * @param config The configuration settings as a JsonNode.
+     * @return A map of default connection properties.
+     */
     override fun getDefaultConnectionProperties(config: JsonNode): Map<String, String> {
-        LOGGER.info("Satish - getDefaultConnectionProperties")
         val additionalParameters: MutableMap<String, String> = HashMap()
-        if (config.has(PARAM_SSL) && config[PARAM_SSL].asBoolean()) {
-            LOGGER.debug("SSL Enabled")
-            if (config.has(PARAM_SSL_MODE)) {
-                LOGGER.debug("Selected SSL Mode : " + config[PARAM_SSL_MODE][PARAM_MODE].asText())
-                additionalParameters.putAll(obtainConnectionOptions(config[PARAM_SSL_MODE]))
+        if (
+            config.has(TeradataConstants.PARAM_SSL) &&
+                config[TeradataConstants.PARAM_SSL].asBoolean()
+        ) {
+            if (config.has(TeradataConstants.PARAM_SSL_MODE)) {
+                additionalParameters.putAll(
+                    obtainConnectionOptions(config[TeradataConstants.PARAM_SSL_MODE])
+                )
             } else {
-                additionalParameters[PARAM_SSLMODE] =
-                    REQUIRE
+                additionalParameters[TeradataConstants.PARAM_SSLMODE] = TeradataConstants.REQUIRE
             }
         }
-        additionalParameters[ENCRYPTDATA] =
-            ENCRYPTDATA_ON
+        if (config.has(TeradataConstants.QUERY_BAND_KEY)) {
+            Companion.queryBand =
+                handleUserQueryBandText(
+                    config[TeradataConstants.QUERY_BAND_KEY].asText(),
+                )
+        }
+        additionalParameters[TeradataConstants.ENCRYPTDATA] = TeradataConstants.ENCRYPTDATA_ON
         return additionalParameters
     }
 
@@ -65,7 +155,6 @@ class TeradataDestination :
     ): DestinationV1V2Migrator = TeradataV1V2Migrator(database)
 
     override fun getDatabaseName(config: JsonNode): String {
-        LOGGER.info("Satish  getDatabaseName Config - {}", config)
         return config[JdbcUtils.SCHEMA_KEY].asText()
     }
 
@@ -87,7 +176,12 @@ class TeradataDestination :
         database: JdbcDatabase,
         rawTableSchema: String
     ): JdbcDestinationHandler<MinimumDestinationState> {
-        return TeradataDestinationHandler(databaseName, database, rawTableSchema, getGenerationHandler())
+        return TeradataDestinationHandler(
+            databaseName,
+            database,
+            rawTableSchema,
+            getGenerationHandler()
+        )
     }
 
     override fun getMigrations(
@@ -102,109 +196,124 @@ class TeradataDestination :
     override val isV2Destination: Boolean
         get() = true
 
+    /**
+     * Obtains additional connection options like SSL configuration.
+     *
+     * @param encryption The JsonNode containing SSL parameters.
+     * @return A map of additional connection properties.
+     */
     private fun obtainConnectionOptions(encryption: JsonNode): Map<String, String> {
         val additionalParameters: MutableMap<String, String> = HashMap()
         if (!encryption.isNull) {
-            val method = encryption[PARAM_MODE].asText()
-            when (method) {
-                "verify-ca", "verify-full" -> {
-                    additionalParameters[PARAM_SSLMODE] =
-                        method
-                    try {
-                        createCertificateFile(
-                            CA_CERTIFICATE,
-                            encryption["ssl_ca_certificate"].asText(),
-                        )
-                    } catch (ioe: IOException) {
-                        throw RuntimeException("Failed to create certificate file")
-                    }
-                    additionalParameters[PARAM_SSLCA] =
-                        CA_CERTIFICATE
-                }
+            val method = encryption[TeradataConstants.PARAM_MODE].asText()
+            additionalParameters[TeradataConstants.PARAM_SSLMODE] = method
 
-                else -> {
-                    additionalParameters[PARAM_SSLMODE] =
-                        method
+            if (TeradataConstants.VERIFY_CA == method || TeradataConstants.VERIFY_FULL == method) {
+                try {
+                    createCertificateFile(encryption[TeradataConstants.CA_CERT_KEY].asText())
+                    additionalParameters[TeradataConstants.PARAM_SSLCA] =
+                        TeradataConstants.CA_CERTIFICATE
+                } catch (ioe: IOException) {
+                    throw RuntimeException(
+                        "Failed to create ca certificate file for verify_ca and verify_full SSL Mode",
+                        ioe
+                    )
                 }
             }
         }
         return additionalParameters
     }
 
-    override fun toJdbcConfig(config: JsonNode): JsonNode {
-        val schema =
-            Optional.ofNullable(config[JdbcUtils.SCHEMA_KEY]).map { obj: JsonNode -> obj.asText() }
-                .orElse(DEFAULT_SCHEMA_NAME)
-
-        val jdbcUrl = String.format(
-            "jdbc:teradata://%s/",
-            config[JdbcUtils.HOST_KEY].asText(),
-        )
-
-        val configBuilder = ImmutableMap.builder<Any, Any>()
-            .put(JdbcUtils.USERNAME_KEY, config[JdbcUtils.USERNAME_KEY].asText())
-            .put(JdbcUtils.JDBC_URL_KEY, jdbcUrl)
-            .put(JdbcUtils.SCHEMA_KEY, schema)
-
-        if (config.has(JdbcUtils.PASSWORD_KEY)) {
-            configBuilder.put(JdbcUtils.PASSWORD_KEY, config[JdbcUtils.PASSWORD_KEY].asText())
+    /** Creates certificate file for verify-ca and verify-full ssl connection */
+    @Throws(IOException::class)
+    private fun createCertificateFile(fileValue: String) {
+        PrintWriter(TeradataConstants.CA_CERTIFICATE, StandardCharsets.UTF_8).use { out ->
+            out.print(fileValue)
+        }
+    }
+    /**
+     * Handles and validates the user-defined query band text.
+     *
+     * @param queryBandText The user-defined query band text.
+     * @return The validated query band text, ensuring required parameters are presentin required
+     * format.
+     */
+    private fun handleUserQueryBandText(queryBandText: String?): String {
+        if (queryBandText.isNullOrBlank()) {
+            return Companion.queryBand
+        }
+        var updatedQueryBand = StringBuilder(queryBandText)
+        // checking org doesn't exist in query_band, appending 'org=teradata-internal-telem'
+        // If it exists, user might have set some value of their own, so doing nothing in that case
+        val orgMatcher = Pattern.compile("org\\s*=").matcher(queryBandText)
+        if (!orgMatcher.find()) {
+            if (queryBandText.isNotBlank() && !queryBandText.endsWith(";")) {
+                updatedQueryBand.append(";")
+            }
+            updatedQueryBand.append(TeradataConstants.DEFAULT_QUERY_BAND_ORG)
         }
 
-        if (config.has(JdbcUtils.JDBC_URL_PARAMS_KEY)) {
-            configBuilder.put(
-                JdbcUtils.JDBC_URL_PARAMS_KEY,
-                config[JdbcUtils.JDBC_URL_PARAMS_KEY].asText(),
-            )
+        // Ensure appname contains airbyte is present or append it if it exists with different value
+        val appNameMatcher = Pattern.compile("appname\\s*=\\s*([^;]*)").matcher(updatedQueryBand)
+        if (appNameMatcher.find()) {
+            val appNameValue = appNameMatcher.group(1).trim { it <= ' ' }
+            if (!appNameValue.lowercase(Locale.getDefault()).contains("airbyte")) {
+                updatedQueryBand =
+                    StringBuilder(
+                        updatedQueryBand
+                            .toString()
+                            .replace(
+                                "appname\\s*=\\s*([^;]*)".toRegex(),
+                                "appname=" + appNameValue + "_airbyte",
+                            ),
+                    )
+            }
+        } else {
+            if (updatedQueryBand.isNotEmpty() && !updatedQueryBand.toString().endsWith(";")) {
+                updatedQueryBand.append(";")
+            }
+            updatedQueryBand.append(TeradataConstants.DEFAULT_QUERY_BAND_APPNAME)
+        }
+        return updatedQueryBand.toString()
+    }
+    /**
+     * Converts the provided configuration into JDBC configuration settings.
+     *
+     * @param config The configuration settings as a JsonNode.
+     * @return The converted JsonNode containing JDBC configuration.
+     */
+    override fun toJdbcConfig(config: JsonNode): JsonNode {
+        val schema = config[JdbcUtils.SCHEMA_KEY]?.asText() ?: TeradataConstants.DEFAULT_SCHEMA_NAME
+        val jdbcUrl = String.format("jdbc:teradata://%s/", config[JdbcUtils.HOST_KEY].asText())
+
+        val userName = config[TeradataConstants.LOG_MECH]?.get(JdbcUtils.USERNAME_KEY)?.asText()
+        val password = config[TeradataConstants.LOG_MECH]?.get(JdbcUtils.PASSWORD_KEY)?.asText()
+
+        val configBuilder =
+            ImmutableMap.builder<Any, Any>()
+                .put(JdbcUtils.JDBC_URL_KEY, jdbcUrl)
+                .put(JdbcUtils.SCHEMA_KEY, schema)
+
+        userName?.let { configBuilder.put(JdbcUtils.USERNAME_KEY, it) }
+        password?.let { configBuilder.put(JdbcUtils.PASSWORD_KEY, it) }
+        config[JdbcUtils.JDBC_URL_PARAMS_KEY]?.asText()?.let {
+            configBuilder.put(JdbcUtils.JDBC_URL_PARAMS_KEY, it)
         }
         return Jsons.jsonNode(configBuilder.build())
     }
 
-
+    val queryBand: String
+        get() = Companion.queryBand
 
     companion object {
         private val LOGGER: Logger = LoggerFactory.getLogger(TeradataDestination::class.java)
 
-        /**
-         * Teradata JDBC driver
-         */
-        const val DRIVER_CLASS: String = "com.teradata.jdbc.TeraDriver"
-
-        /**
-         * Default schema name
-         */
-        protected const val DEFAULT_SCHEMA_NAME: String = "def_airbyte_db"
-        protected const val PARAM_MODE: String = "mode"
-        protected const val PARAM_SSL: String = "ssl"
-        protected const val PARAM_SSL_MODE: String = "ssl_mode"
-        protected const val PARAM_SSLMODE: String = "sslmode"
-        protected const val PARAM_SSLCA: String = "sslca"
-        protected const val REQUIRE: String = "require"
-
-        protected const val VERIFY_CA: String = "verify-ca"
-
-        protected const val VERIFY_FULL: String = "verify-full"
-
-        protected const val ALLOW: String = "allow"
-
-        protected const val CA_CERTIFICATE: String = "ca.pem"
-
-        protected const val CA_CERT_KEY: String = "ssl_ca_certificate"
-
-        protected const val ENCRYPTDATA: String = "ENCRYPTDATA"
-
-        protected const val ENCRYPTDATA_ON: String = "ON"
+        private var queryBand = TeradataConstants.DEFAULT_QUERY_BAND
 
         @Throws(Exception::class)
         @JvmStatic
         fun main(args: Array<String>) {
             IntegrationRunner(TeradataDestination()).run(args)
-        }
-
-        @Throws(IOException::class)
-        private fun createCertificateFile(fileName: String, fileValue: String) {
-            PrintWriter(fileName, StandardCharsets.UTF_8).use { out ->
-                out.print(fileValue)
-            }
         }
     }
 }

@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2024 Airbyte, Inc., all rights reserved.
+ */
+
 package io.airbyte.integrations.destination.teradata.typing_deduping
 
 import com.fasterxml.jackson.databind.JsonNode
@@ -16,7 +20,6 @@ import io.airbyte.integrations.base.destination.typing_deduping.Struct
 import io.airbyte.integrations.base.destination.typing_deduping.Union
 import io.airbyte.integrations.base.destination.typing_deduping.UnsupportedOneOf
 import io.airbyte.integrations.base.destination.typing_deduping.migrators.MinimumDestinationState
-import io.airbyte.integrations.destination.teradata.TeradataSqlOperations
 import io.airbyte.integrations.destination.teradata.TeradataSqlOperations.Companion
 import io.airbyte.protocol.models.v0.AirbyteStreamNameNamespacePair
 import java.sql.SQLException
@@ -33,7 +36,16 @@ import org.jooq.impl.SQLDataType
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
-
+/**
+ * A handler for destination-specific operations for Teradata. This class provides implementations
+ * for managing destination states, mapping Airbyte types to JDBC types, and interacting with the
+ * Teradata destination.
+ *
+ * @param databaseName The name of the database.
+ * @param jdbcDatabase The JDBC database instance used to interact with the database.
+ * @param rawTableSchema The schema for the raw table in the database.
+ * @param generationHandler The handler for generating the SQL for database operations.
+ */
 class TeradataDestinationHandler(
     databaseName: String?,
     jdbcDatabase: JdbcDatabase,
@@ -46,7 +58,13 @@ class TeradataDestinationHandler(
         rawTableSchema,
         SQLDialect.DEFAULT,
         generationHandler = generationHandler
-    ){
+    ) {
+    /**
+     * Converts a JSON node into a `MinimumDestinationState` object.
+     *
+     * @param json The JSON node representing the destination state.
+     * @return A `MinimumDestinationState` object.
+     */
     override fun toDestinationState(json: JsonNode): MinimumDestinationState =
         MinimumDestinationState.Impl(
             json.hasNonNull("needsSoftReset") && json["needsSoftReset"].asBoolean(),
@@ -55,50 +73,57 @@ class TeradataDestinationHandler(
     override fun createNamespaces(schemas: Set<String>) {
         TODO("Not yet implemented")
     }
-
-
+    /**
+     * Converts an Airbyte type to its corresponding JDBC type name.
+     *
+     * @param airbyteType The Airbyte type to convert.
+     * @return The JDBC type name.
+     * @throws IllegalArgumentException If the Airbyte type is unsupported.
+     */
     override fun toJdbcTypeName(airbyteType: AirbyteType): String {
-        LOGGER.info("Satish - TeradataDestinationHandler - toJdbcTypeName : {}" , airbyteType.typeName)
-        val test =
+        val type =
             if (airbyteType is AirbyteProtocolType) {
-                LOGGER.info("Satish - TeradataDestinationHandler - toJdbcTypeName : comanion type")
                 Companion.toJdbcTypeName(airbyteType)
             } else {
-                LOGGER.info("Satish - TeradataDestinationHandler - toJdbcTypeName : non comanion type")
                 when (airbyteType.typeName) {
                     Struct.TYPE,
                     UnsupportedOneOf.TYPE,
                     Array.TYPE -> "json"
-
                     Union.TYPE -> toJdbcTypeName((airbyteType as Union).chooseType())
                     else -> throw IllegalArgumentException("Unsupported AirbyteType: $airbyteType")
                 }
             }
-        return test
+        return type
     }
-
-
+    /**
+     * Checks if the final table is empty for the given stream ID.
+     *
+     * @param id The stream ID to check.
+     * @return `true` if the table is empty, `false` otherwise.
+     * @throws SQLException If there is an error during the query execution.
+     */
     @Throws(Exception::class)
     override fun isFinalTableEmpty(id: StreamId): Boolean {
         return try {
-            val existsFlag = !jdbcDatabase.queryBoolean(
-            dslContext
-                .select(
-                    DSL.case_()
-                        .`when`<Int>(
-                            field<Int>(
-                                DSL.select<Int>(DSL.count())
-                                    .from(DSL.name(id.finalNamespace, id.finalName)),
-                            ).gt(0),
-                            DSL.inline(1),
+            val existsFlag =
+                !jdbcDatabase.queryBoolean(
+                    dslContext
+                        .select(
+                            DSL.case_()
+                                .`when`<Int>(
+                                    field<Int>(
+                                            DSL.select<Int>(DSL.count())
+                                                .from(DSL.name(id.finalNamespace, id.finalName)),
+                                        )
+                                        .gt(0),
+                                    DSL.inline(1),
+                                )
+                                .otherwise(DSL.inline(0))
+                                .`as`("exists_flag"),
                         )
-                        .otherwise(DSL.inline(0))
-                        .`as`("exists_flag"),
+                        .getSQL(ParamType.INLINED),
                 )
-                .getSQL(ParamType.INLINED),
-        )
-        LOGGER.info("Satish - TeradataDestinationHandler - isFinalTableEmpty - query - {}", existsFlag)
-        return existsFlag
+            return existsFlag
         } catch (e: SQLException) {
             if (e.message!!.contains("does not exist")) {
                 LOGGER.warn(
@@ -108,42 +133,51 @@ class TeradataDestinationHandler(
             true
         }
     }
-
-
-
+    /**
+     * Generates an SQL query to delete destination states from the destination state table.
+     *
+     * @param destinationStates A map of stream IDs to their corresponding destination states.
+     * @return The SQL query for deleting destination states.
+     */
     override fun getDeleteStatesSql(
         destinationStates: Map<StreamId, MinimumDestinationState>
     ): String {
-        val query = dslContext
-            .deleteFrom(
-                table(
-                    quotedName(
-                        rawTableNamespace,
-                        DESTINATION_STATE_TABLE_NAME,
+        val query =
+            dslContext
+                .deleteFrom(
+                    table(
+                        quotedName(
+                            rawTableNamespace,
+                            DESTINATION_STATE_TABLE_NAME,
+                        ),
                     ),
-                ),
-            )
-            .where(
-                destinationStates.keys
-                    .stream()
-                    .map { streamId: StreamId ->
-                        field(quotedName(DESTINATION_STATE_TABLE_COLUMN_NAME))
-                            .eq(streamId.originalName)
-                            .and(
-                                field(quotedName(DESTINATION_STATE_TABLE_COLUMN_NAMESPACE))
-                                    .eq(streamId.originalNamespace),
-                            )
-                    }
-                    .reduce(DSL.noCondition()) { obj: Condition, arg2: Condition? ->
-                        obj.or(arg2)
-                    },
-            )
-            .getSQL(ParamType.INLINED)
-        LOGGER.info("Satish - TeradataDestinationHandler - getDeleteStatesSql - delete query - {}", query)
+                )
+                .where(
+                    destinationStates.keys
+                        .stream()
+                        .map { streamId: StreamId ->
+                            field(quotedName(DESTINATION_STATE_TABLE_COLUMN_NAME))
+                                .eq(streamId.originalName)
+                                .and(
+                                    field(quotedName(DESTINATION_STATE_TABLE_COLUMN_NAMESPACE))
+                                        .eq(streamId.originalNamespace),
+                                )
+                        }
+                        .reduce(DSL.noCondition()) { obj: Condition, arg2: Condition? ->
+                            obj.or(arg2)
+                        },
+                )
+                .getSQL(ParamType.INLINED)
         return query
     }
-
-    override fun commitDestinationStates(destinationStates: Map<StreamId, MinimumDestinationState>) {
+    /**
+     * Commits the given destination states to the database.
+     *
+     * @param destinationStates A map of stream IDs to their corresponding destination states.
+     */
+    override fun commitDestinationStates(
+        destinationStates: Map<StreamId, MinimumDestinationState>
+    ) {
         try {
             if (destinationStates.isEmpty()) {
                 return
@@ -156,58 +190,75 @@ class TeradataDestinationHandler(
             for ((streamId, value) in destinationStates) {
                 val stateJson = Jsons.serialize(value)
 
-
                 // Reinsert all of our states
-                val insertStatesStep: String = dslContext
-                    .insertInto(
-                        table(
-                            quotedName(
-                                rawTableNamespace,
-                                DESTINATION_STATE_TABLE_NAME,
+                val insertStatesStep: String =
+                    dslContext
+                        .insertInto(
+                            table(
+                                quotedName(
+                                    rawTableNamespace,
+                                    DESTINATION_STATE_TABLE_NAME,
+                                ),
                             ),
-                        ),
-                    )
-                    .columns(
-                        field(quotedName(DESTINATION_STATE_TABLE_COLUMN_NAME), String::class.java),
-                        field(
-                            quotedName(DESTINATION_STATE_TABLE_COLUMN_NAMESPACE),
-                            String::class.java,
-                        ),
-                        field(quotedName(DESTINATION_STATE_TABLE_COLUMN_STATE), String::class.java),
-                        field(quotedName(DESTINATION_STATE_TABLE_COLUMN_UPDATED_AT)),
-                    ).values(
-                        streamId.originalName,
-                        streamId.originalNamespace,
-                        stateJson,
-                        null,
-                    ).getSQL(ParamType.INLINED)
-                LOGGER.info("Satish - TeradataDestinationHandler - commitDestinationStates - insertStatesStep - {}", insertStatesStep)
+                        )
+                        .columns(
+                            field(
+                                quotedName(DESTINATION_STATE_TABLE_COLUMN_NAME),
+                                String::class.java
+                            ),
+                            field(
+                                quotedName(DESTINATION_STATE_TABLE_COLUMN_NAMESPACE),
+                                String::class.java,
+                            ),
+                            field(
+                                quotedName(DESTINATION_STATE_TABLE_COLUMN_STATE),
+                                String::class.java
+                            ),
+                            field(quotedName(DESTINATION_STATE_TABLE_COLUMN_UPDATED_AT)),
+                        )
+                        .values(
+                            streamId.originalName,
+                            streamId.originalNamespace,
+                            stateJson,
+                            null,
+                        )
+                        .getSQL(ParamType.INLINED)
                 sqlStatementsDestinationState.add(insertStatesStep)
             }
-
 
             executeWithinTransaction(sqlStatementsDestinationState)
         } catch (e: java.lang.Exception) {
             LOGGER.warn("Failed to commit destination states", e)
         }
     }
-
-    override fun getAllDestinationStates(): Map<AirbyteStreamNameNamespacePair, MinimumDestinationState> {
+    /**
+     * Retrieves all destination states from the database.
+     *
+     * @return A map of stream names and namespaces to their corresponding destination states.
+     */
+    override fun getAllDestinationStates():
+        Map<AirbyteStreamNameNamespacePair, MinimumDestinationState> {
         try {
-            val sqlStatement: String = dslContext
-                .createTable(quotedName(rawTableNamespace, DESTINATION_STATE_TABLE_NAME))
-                .column(quotedName(DESTINATION_STATE_TABLE_COLUMN_NAME), SQLDataType.VARCHAR(256))
-                .column(
-                    quotedName(DESTINATION_STATE_TABLE_COLUMN_NAMESPACE),
-                    SQLDataType.VARCHAR(256),
-                )
-                .column(quotedName(DESTINATION_STATE_TABLE_COLUMN_STATE), SQLDataType.VARCHAR(256))
-                .column(
-                    quotedName(DESTINATION_STATE_TABLE_COLUMN_UPDATED_AT),
-                    stateTableUpdatedAtType,
-                )
-                .getSQL(ParamType.INLINED)
-            LOGGER.info("Satish - TeradataDestinationHandler - getAllDestinationStates - sqlStatement - {}", sqlStatement)
+            val sqlStatement: String =
+                dslContext
+                    .createTable(quotedName(rawTableNamespace, DESTINATION_STATE_TABLE_NAME))
+                    .column(
+                        quotedName(DESTINATION_STATE_TABLE_COLUMN_NAME),
+                        SQLDataType.VARCHAR(256)
+                    )
+                    .column(
+                        quotedName(DESTINATION_STATE_TABLE_COLUMN_NAMESPACE),
+                        SQLDataType.VARCHAR(256),
+                    )
+                    .column(
+                        quotedName(DESTINATION_STATE_TABLE_COLUMN_STATE),
+                        SQLDataType.VARCHAR(256)
+                    )
+                    .column(
+                        quotedName(DESTINATION_STATE_TABLE_COLUMN_UPDATED_AT),
+                        stateTableUpdatedAtType,
+                    )
+                    .getSQL(ParamType.INLINED)
             try {
                 jdbcDatabase.execute(sqlStatement)
             } catch (e: SQLException) {
@@ -281,23 +332,28 @@ class TeradataDestinationHandler(
 
                     airbyteStreamNameNamespacePair to toDestinationState(stateNode)
                 }
-
-
         } catch (e: java.lang.Exception) {
             LOGGER.warn("Failed to retrieve destination states", e)
             return emptyMap()
         }
     }
-
+    /**
+     * Finds the existing table for the given stream ID.
+     *
+     * @param id The stream ID.
+     * @return An optional `TableDefinition` object representing the existing table, if found.
+     */
     override fun findExistingTable(id: StreamId): Optional<TableDefinition> =
         findExistingTable(jdbcDatabase, id.finalNamespace, null, id.finalName)
-
-
+    /**
+     * Executes a list of SQL statements within a transaction.
+     *
+     * @param sql The SQL statements to execute.
+     */
     override fun execute(sql: Sql) {
         val transactions: List<List<String>> = sql.transactions
         for (transaction in transactions) {
             try {
-                LOGGER.info("Satish - TeradataDestinationHandler - execute - query {}", transaction)
                 jdbcDatabase.executeWithinTransaction(transaction)
             } catch (e: SQLException) {
                 if (e.message!!.contains("with the specified name already exists")) {
@@ -317,9 +373,13 @@ class TeradataDestinationHandler(
         private const val DESTINATION_STATE_TABLE_NAME = "_airbyte_destination_state"
         private const val DESTINATION_STATE_TABLE_COLUMN_NAME = "name"
         private const val DESTINATION_STATE_TABLE_COLUMN_NAMESPACE = "namespace"
-
+        /**
+         * Converts an Airbyte Protocol type to a JDBC type name.
+         *
+         * @param airbyteType The Airbyte Protocol type.
+         * @return The corresponding JDBC type name.
+         */
         private fun toJdbcTypeName(airbyteProtocolType: AirbyteProtocolType): String {
-            LOGGER.info("Satish toJdbcTypeName: {}", airbyteProtocolType)
             val test =
                 when (airbyteProtocolType) {
                     AirbyteProtocolType.STRING -> "text"
