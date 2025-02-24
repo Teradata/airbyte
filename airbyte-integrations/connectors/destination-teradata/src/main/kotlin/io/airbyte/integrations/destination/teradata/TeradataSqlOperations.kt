@@ -140,10 +140,13 @@ class TeradataSqlOperations : JdbcSqlOperations() {
 
     override fun overwriteRawTable(database: JdbcDatabase, rawNamespace: String, rawName: String) {
         val tmpName = rawName + AbstractStreamOperation.TMP_TABLE_SUFFIX
-        executeTransaction(database, listOf(
-            "DROP TABLE $rawNamespace.$rawName",
-            "RENAME $rawNamespace.$tmpName TO $rawNamespace.$rawName"
-        ))
+        executeTransaction(
+            database,
+            listOf(
+                "DROP TABLE $rawNamespace.$rawName",
+                "RENAME $rawNamespace.$tmpName TO $rawNamespace.$rawName"
+            )
+        )
     }
 
     /**
