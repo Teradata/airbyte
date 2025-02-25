@@ -49,6 +49,10 @@ public class TeradataSource extends AbstractJdbcSource<JDBCType> implements Sour
   public static final String REQUIRE = "require";
 
   private static final String CA_CERTIFICATE = "ca.pem";
+  private static final String LOG_MECH = "logmech";
+  private static final String AUTH_TYPE = "auth_type";
+  private static final String TD2_LOG_MECH = "TD2";
+  private static final String BROWSER_LOG_MECH = "BROWSER";
 
   public TeradataSource() {
     super(DRIVER_CLASS, AdaptiveStreamingQueryConfig::new, new TeradataSourceOperations());
@@ -65,19 +69,26 @@ public class TeradataSource extends AbstractJdbcSource<JDBCType> implements Sour
   public JsonNode toDatabaseConfig(final JsonNode config) {
     final String schema = config.get(JdbcUtils.DATABASE_KEY).asText();
 
-    final String host =
-        config.has(JdbcUtils.PORT_KEY) ? config.get(JdbcUtils.HOST_KEY).asText() + "DBS_PORT=" + config.get(JdbcUtils.PORT_KEY).asInt()
-            : config.get(JdbcUtils.HOST_KEY).asText();
+    final String host = config.get(JdbcUtils.HOST_KEY).asText();
 
     final String jdbcUrl = String.format("jdbc:teradata://%s/", host);
 
     final ImmutableMap.Builder<Object, Object> configBuilder = ImmutableMap.builder()
-        .put(JdbcUtils.USERNAME_KEY, config.get(JdbcUtils.USERNAME_KEY).asText())
         .put(JdbcUtils.JDBC_URL_KEY, jdbcUrl)
         .put(JdbcUtils.SCHEMA_KEY, schema);
 
-    if (config.has(JdbcUtils.PASSWORD_KEY)) {
-      configBuilder.put(JdbcUtils.PASSWORD_KEY, config.get(JdbcUtils.PASSWORD_KEY).asText());
+    String userName = null;
+    String password = null;
+    if (config.has(LOG_MECH) && config.get(LOG_MECH).has(AUTH_TYPE) && !(config.get(LOG_MECH).get(AUTH_TYPE).asText().equals(BROWSER_LOG_MECH))) {
+      userName = config.get(LOG_MECH).get(JdbcUtils.USERNAME_KEY).asText();
+      password = config.get(LOG_MECH).get(JdbcUtils.PASSWORD_KEY).asText();
+    }
+
+    if (userName != null) {
+      configBuilder.put(JdbcUtils.USERNAME_KEY, userName);
+    }
+    if (password != null) {
+      configBuilder.put(JdbcUtils.PASSWORD_KEY, password);
     }
 
     if (config.has(JdbcUtils.JDBC_URL_PARAMS_KEY)) {
@@ -111,7 +122,9 @@ public class TeradataSource extends AbstractJdbcSource<JDBCType> implements Sour
     JdbcDataSourceUtils.assertCustomParametersDontOverwriteDefaultParameters(customProperties, sslConnectionProperties);
 
     final JsonNode jdbcConfig = toDatabaseConfig(sourceConfig);
-    final Map<String, String> connectionProperties = MoreMaps.merge(customProperties, sslConnectionProperties);
+    Map<String, String> connectionProperties = MoreMaps.merge(customProperties, sslConnectionProperties);
+    connectionProperties = MoreMaps.merge(appendLogMech(jdbcConfig), connectionProperties);
+    LOGGER.info("Source Satish -{} ", connectionProperties);
     // Create the data source
     final DataSource dataSource = DataSourceFactory.create(
         jdbcConfig.has(JdbcUtils.USERNAME_KEY) ? jdbcConfig.get(JdbcUtils.USERNAME_KEY).asText() : null,
@@ -132,6 +145,20 @@ public class TeradataSource extends AbstractJdbcSource<JDBCType> implements Sour
     database.setSourceConfig(sourceConfig);
     database.setDatabaseConfig(jdbcConfig);
     return database;
+  }
+
+  /** Appends Logging Mechanism to JDBC URL */
+  private Map<String, String> appendLogMech(JsonNode config) {
+    Map<String, String> logmechParams = new HashMap<>();
+
+    if (config.has(LOG_MECH) &&
+        config.get(LOG_MECH).has(AUTH_TYPE) &&
+        !config.get(LOG_MECH).get(AUTH_TYPE).asText().equals(TD2_LOG_MECH)) {
+
+      logmechParams.put(LOG_MECH,
+          config.get(LOG_MECH).get(AUTH_TYPE).asText());
+    }
+    return logmechParams;
   }
 
   private Map<String, String> getSslConnectionProperties(JsonNode config) {

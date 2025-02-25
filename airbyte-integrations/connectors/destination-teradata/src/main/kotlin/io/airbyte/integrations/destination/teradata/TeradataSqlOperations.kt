@@ -138,7 +138,6 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         }
     }
 
-
     /**
      * Constructs the SQL query for droping a table in the Teradata database.
      *
@@ -195,8 +194,18 @@ class TeradataSqlOperations : JdbcSqlOperations() {
      * @param tableName The name of the table to be truncated.
      * @return The SQL query string for truncating the table.
      */
-    private fun renameTableQuery(schemaName: String?, oldTableName: String?, newTableName: String?): String {
-        return String.format("RENAME TABLE  %s.%s TO %s.%s;", schemaName, oldTableName, schemaName, newTableName)
+    private fun renameTableQuery(
+        schemaName: String?,
+        oldTableName: String?,
+        newTableName: String?
+    ): String {
+        return String.format(
+            "RENAME TABLE  %s.%s TO %s.%s;",
+            schemaName,
+            oldTableName,
+            schemaName,
+            newTableName
+        )
     }
 
     /**
