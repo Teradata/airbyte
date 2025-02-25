@@ -129,7 +129,7 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         tableName: String?
     ) {
         try {
-            database.execute(dropTableIfExistsQueryInternal(schemaName, tableName))
+            database.execute(dropTableQuery(schemaName, tableName))
         } catch (e: SQLException) {
             AirbyteTraceMessageUtility.emitSystemErrorTrace(
                 e,
@@ -138,15 +138,65 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         }
     }
 
+
+    /**
+     * Constructs the SQL query for droping a table in the Teradata database.
+     *
+     * @param schemaName The name of the schema where the table resides.
+     * @param tableName The name of the table to be truncated.
+     * @return The SQL query string for truncating the table.
+     */
+    private fun dropTableQuery(schemaName: String?, tableName: String?): String {
+        return String.format("DROP TABLE  %s.%s;\n", schemaName, tableName)
+    }
+
+    /**
+     * Overwrites given raw table
+     *
+     * @param database The JdbcDatabase instance to interact with the database.
+     * @param rawNamespace The name of the schema where the table resides.
+     * @param rawName The name of the table to be dropped.
+     */
     override fun overwriteRawTable(database: JdbcDatabase, rawNamespace: String, rawName: String) {
         val tmpName = rawName + AbstractStreamOperation.TMP_TABLE_SUFFIX
-        executeTransaction(
-            database,
-            listOf(
-                "DROP TABLE $rawNamespace.$rawName",
-                "RENAME TABLE $rawNamespace.$tmpName TO $rawNamespace.$rawName"
+        dropTableIfExists(database, rawNamespace, rawName)
+        renameTableIfExists(database, rawNamespace, tmpName, rawName)
+    }
+
+    /**
+     * Drops a specified table from the Teradata database if it exists.
+     *
+     * @param database The JdbcDatabase instance to interact with the database.
+     * @param schemaName The name of the schema where the table resides.
+     * @param tableName The name of the table to be dropped.
+     * @throws SQLException If an SQL error occurs during the drop operation.
+     */
+    @Throws(SQLException::class)
+    fun renameTableIfExists(
+        database: JdbcDatabase,
+        schemaName: String?,
+        oldTableName: String?,
+        newTableName: String?
+    ) {
+        try {
+            database.execute(renameTableQuery(schemaName, oldTableName, newTableName))
+        } catch (e: SQLException) {
+            AirbyteTraceMessageUtility.emitSystemErrorTrace(
+                e,
+                "Connector failed while renaming table $schemaName.$oldTableName",
             )
-        )
+        }
+    }
+
+    /**
+     * Constructs the SQL query for droping a table in the Teradata database.
+     *
+     * @param schemaName The name of the schema where the table resides.
+     * @param tableName The name of the table to be truncated.
+     * @return The SQL query string for truncating the table.
+     */
+    private fun renameTableQuery(schemaName: String?, oldTableName: String?, newTableName: String?): String {
+        return String.format("RENAME TABLE  %s.%s TO %s.%s;", schemaName, oldTableName, schemaName, newTableName)
     }
 
     /**
@@ -239,28 +289,9 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         schemaName: String,
         tableName: String
     ): String {
-        try {
-            return String.format("DELETE %s.%s ALL;\n", schemaName, tableName)
-        } catch (e: Exception) {
-            AirbyteTraceMessageUtility.emitSystemErrorTrace(
-                e,
-                "Connector failed while truncating table $schemaName.$tableName",
-            )
-        }
-        return ""
+        return String.format("DELETE %s.%s ALL;\n", schemaName, tableName)
     }
 
-    private fun dropTableIfExistsQueryInternal(schemaName: String?, tableName: String?): String {
-        try {
-            return String.format("DROP TABLE  %s.%s;\n", schemaName, tableName)
-        } catch (e: Exception) {
-            AirbyteTraceMessageUtility.emitSystemErrorTrace(
-                e,
-                "Connector failed while dropping table $schemaName.$tableName",
-            )
-        }
-        return ""
-    }
     /**
      * Executes a list of SQL queries as a single transaction.
      *
