@@ -5,19 +5,17 @@
 package io.airbyte.integrations.destination.teradata
 
 import io.airbyte.cdk.db.jdbc.JdbcDatabase
-import io.airbyte.cdk.integrations.base.AirbyteTraceMessageUtility
 import io.airbyte.cdk.integrations.base.JavaBaseConstants
 import io.airbyte.cdk.integrations.destination.jdbc.JdbcSqlOperations
 import io.airbyte.commons.json.Jsons
 import io.airbyte.integrations.destination.teradata.util.JSONStruct
+import io.airbyte.integrations.destination.teradata.util.TeradataConstants
 import io.airbyte.protocol.models.v0.AirbyteRecordMessage
 import java.sql.Connection
 import java.sql.SQLException
 import java.sql.Timestamp
 import java.time.Instant
 import java.util.*
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
 
 /**
  * The TeradataSqlOperations class is responsible for performing SQL operations on the Teradata
@@ -45,6 +43,7 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         if (records.isEmpty()) {
             return
         }
+        val batchSize = TeradataConstants.BATCH_COUNT
         val insertQueryComponent =
             String.format(
                 "INSERT INTO %s.%s (%s, %s, %s) VALUES (?, ?, ?)",
@@ -55,42 +54,32 @@ class TeradataSqlOperations : JdbcSqlOperations() {
                 JavaBaseConstants.COLUMN_NAME_EMITTED_AT,
             )
         database.execute { con: Connection ->
-            try {
-                con.prepareStatement(insertQueryComponent).use { pstmt ->
-                    for (record in records) {
-                        val uuid = UUID.randomUUID().toString()
-                        val jsonData = Jsons.serialize(formatData(record.data))
-                        val emittedAt = Timestamp.from(Instant.ofEpochMilli(record.emittedAt))
+            var batchCount = 0
+            con.prepareStatement(insertQueryComponent).use { stmt ->
+                for (record in records) {
+                    val uuid = UUID.randomUUID().toString()
+                    val jsonData = Jsons.serialize(formatData(record.data))
+                    val emittedAt = Timestamp.from(Instant.ofEpochMilli(record.emittedAt))
 
-                        pstmt.setString(1, uuid)
-                        pstmt.setObject(2, JSONStruct("JSON", arrayOf(jsonData)))
-                        pstmt.setTimestamp(3, emittedAt)
-                        pstmt.addBatch()
+                    stmt.setString(1, uuid)
+                    stmt.setObject(2, JSONStruct("JSON", arrayOf(jsonData)))
+                    stmt.setTimestamp(3, emittedAt)
+                    stmt.addBatch()
+                    batchCount++
+                    if (batchCount >= batchSize) {
+                        stmt.executeBatch()
+                        stmt.clearBatch()
+                        batchCount = 0
                     }
-                    pstmt.executeBatch()
                 }
-            } catch (se: SQLException) {
-                handleSQLException(se)
-            } catch (e: Exception) {
-                AirbyteTraceMessageUtility.emitSystemErrorTrace(
-                    e,
-                    "Connector failed during inserting records to staging table",
-                )
-                throw RuntimeException(e)
+                if (batchCount > 0) {
+                    stmt.executeBatch()
+                    stmt.clearBatch()
+                }
             }
         }
     }
 
-    private fun handleSQLException(se: SQLException) {
-        var ex: SQLException? = se
-        val action = "inserting records to staging table"
-        while (ex != null) {
-            LOGGER.error("SQL error during $action: ${ex.message}")
-            ex = ex.nextException
-        }
-        AirbyteTraceMessageUtility.emitSystemErrorTrace(se, "Connector failed during $action")
-        throw RuntimeException(se)
-    }
     /**
      * Creates a schema in the Teradata database if it does not already exist.
      *
@@ -99,25 +88,42 @@ class TeradataSqlOperations : JdbcSqlOperations() {
      * @throws Exception If an error occurs while creating the schema.
      */
     @Throws(Exception::class)
-    override fun createSchemaIfNotExists(database: JdbcDatabase, schemaName: String) {
-        try {
-            database.execute(
+    override fun createSchemaIfNotExists(database: JdbcDatabase?, schemaName: String) {
+        if (!isSchemaExists(database, schemaName)) {
+            database?.execute(
                 String.format(
                     "CREATE DATABASE \"%s\" AS PERMANENT = 120e6, SPOOL = 120e6;",
                     schemaName,
-                ),
-            )
-        } catch (e: SQLException) {
-            if (e.message!!.contains("already exists")) {
-                LOGGER.warn("Database $schemaName already exists.")
-            } else {
-                AirbyteTraceMessageUtility.emitSystemErrorTrace(
-                    e,
-                    "Connector failed while creating schema ",
                 )
-                throw RuntimeException(e)
-            }
+            )
+        } else {
+            LOGGER.warn(
+                "Database $schemaName already exists.",
+            )
         }
+    }
+
+    /**
+     * Checks if a schema with the specified name exists in the given database.
+     *
+     * This function queries the database to count the number of records in the `DBC.Databases`
+     * table that match the provided `schemaName`. If the count is greater than 0, the function
+     * returns `true`, indicating that the schema exists. Otherwise, it returns `false`.
+     *
+     * @param database The database object to query.
+     * @param schemaName The name of the schema to check for existence.
+     * @return `true` if the schema exists in the database, `false` otherwise. Returns `false` if
+     * the database or schema name is `null`.
+     */
+    @Throws(Exception::class)
+    override fun isSchemaExists(database: JdbcDatabase?, schemaName: String?): Boolean {
+        return (database?.queryInt(
+            String.format(
+                "SELECT COUNT(1) FROM DBC.Databases WHERE DatabaseName = '%s'",
+                schemaName,
+            )
+        )
+            ?: 0) > 0 // If the result is greater than 0, return true, else false
     }
     /**
      * Creates a table in the Teradata database if it does not already exist.
@@ -133,19 +139,37 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         schemaName: String,
         tableName: String
     ) {
-        try {
+        if (checkTableExists(database, schemaName, tableName) == 0)
             database.execute(createTableQuery(database, schemaName, tableName))
-        } catch (e: SQLException) {
-            if (e.message!!.contains("already exists")) {
-                LOGGER.warn("Table $schemaName.$tableName already exists.")
-            } else {
-                AirbyteTraceMessageUtility.emitSystemErrorTrace(
-                    e,
-                    "Connector failed while creating table ",
-                )
-                throw RuntimeException(e)
-            }
-        }
+    }
+    /**
+     * Checks whether a table with the given name exists in the specified schema of the database.
+     *
+     * This method queries the database to determine if a table exists in the specified schema. It
+     * returns a value greater than 0 if the table exists, and 0 if the table does not exist.
+     *
+     * @param database The database instance where the table check is performed.
+     * @param schemaName The name of the schema in which to check for the table. Can be `null` if no
+     * schema is used.
+     * @param tableName The name of the table to check for. Must not be `null`.
+     *
+     * @return A positive integer if the table exists, otherwise 0 if the table does not exist.
+     *
+     * @throws SQLException If an SQL error occurs while checking for the table's existence.
+     */
+    @Throws(SQLException::class)
+    private fun checkTableExists(
+        database: JdbcDatabase?,
+        schemaName: String?,
+        tableName: String?
+    ): Int? {
+        return database?.queryInt(
+            String.format(
+                "SELECT COUNT(1) FROM DBC.TABLES WHERE DatabaseName = '%s' AND TableName = '%s' AND TableKind = 'T'",
+                schemaName,
+                tableName
+            )
+        )
     }
     /**
      * Constructs the SQL query for creating a new table in the Teradata database.
@@ -181,14 +205,7 @@ class TeradataSqlOperations : JdbcSqlOperations() {
      */
     @Throws(SQLException::class)
     override fun dropTableIfExists(database: JdbcDatabase, schemaName: String, tableName: String) {
-        try {
-            database.execute(dropTableIfExistsQueryInternal(schemaName, tableName))
-        } catch (e: SQLException) {
-            AirbyteTraceMessageUtility.emitSystemErrorTrace(
-                e,
-                "Connector failed while dropping table $schemaName.$tableName",
-            )
-        }
+        database.execute(dropTableIfExistsQueryInternal(schemaName, tableName))
     }
     /**
      * Constructs the SQL query for truncating a table in the Teradata database.
@@ -203,27 +220,11 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         schemaName: String,
         tableName: String
     ): String {
-        try {
-            return String.format("DELETE %s.%s ALL;\n", schemaName, tableName)
-        } catch (e: Exception) {
-            AirbyteTraceMessageUtility.emitSystemErrorTrace(
-                e,
-                "Connector failed while truncating table $schemaName.$tableName",
-            )
-        }
-        return ""
+        return String.format("DELETE %s.%s ALL;\n", schemaName, tableName)
     }
 
     private fun dropTableIfExistsQueryInternal(schemaName: String, tableName: String): String {
-        try {
-            return String.format("DROP TABLE  %s.%s;\n", schemaName, tableName)
-        } catch (e: Exception) {
-            AirbyteTraceMessageUtility.emitSystemErrorTrace(
-                e,
-                "Connector failed while dropping table $schemaName.$tableName",
-            )
-        }
-        return ""
+        return String.format("DROP TABLE  %s.%s;\n", schemaName, tableName)
     }
     /**
      * Executes a list of SQL queries as a single transaction.
@@ -235,21 +236,11 @@ class TeradataSqlOperations : JdbcSqlOperations() {
     @Throws(Exception::class)
     override fun executeTransaction(database: JdbcDatabase, queries: List<String>) {
         val appendedQueries = StringBuilder()
-        try {
+        if (queries.isNotEmpty()) {
             for (query in queries) {
                 appendedQueries.append(query)
             }
             database.execute(appendedQueries.toString())
-        } catch (e: SQLException) {
-            AirbyteTraceMessageUtility.emitSystemErrorTrace(
-                e,
-                "Connector failed while executing queries : $appendedQueries",
-            )
-            throw e
         }
-    }
-
-    companion object {
-        private val LOGGER: Logger = LoggerFactory.getLogger(TeradataSqlOperations::class.java)
     }
 }

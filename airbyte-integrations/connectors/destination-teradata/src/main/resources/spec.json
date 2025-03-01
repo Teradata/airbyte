@@ -8,7 +8,7 @@
     "$schema": "http://json-schema.org/draft-07/schema#",
     "title": "Teradata Destination Spec",
     "type": "object",
-    "required": ["host"],
+    "required": ["host", "username"],
     "additionalProperties": true,
     "properties": {
       "host": {
@@ -17,83 +17,18 @@
         "type": "string",
         "order": 0
       },
-      "logmech": {
-        "title": "Authorization Mechanism",
-        "description": "",
-        "type": "object",
-        "oneOf": [
-          {
-            "title": "TD2",
-            "type": "object",
-            "order": 0,
-            "required": ["username", "password"],
-            "properties": {
-              "auth_type": {
-                "type": "string",
-                "const": "TD2",
-                "enum": ["TD2"],
-                "default": "TD2",
-                "order": 0
-              },
-              "username": {
-                "title": "User",
-                "description": "Username to use to access the database.",
-                "type": "string",
-                "order": 1
-              },
-              "password": {
-                "description": "Enter the password associated with the username.",
-                "type": "string",
-                "airbyte_secret": true,
-                "title": "Password",
-                "order": 2
-              }
-            }
-          },
-          {
-            "title": "LDAP",
-            "type": "object",
-            "required": ["username", "password"],
-            "order": 1,
-            "properties": {
-              "auth_type": {
-                "type": "string",
-                "const": "LDAP",
-                "enum": ["LDAP"],
-                "default": "LDAP",
-                "order": 0
-              },
-              "username": {
-                "title": "User",
-                "description": "Username to use to access the database.",
-                "type": "string",
-                "order": 1
-              },
-              "password": {
-                "description": "Enter the password associated with the username.",
-                "type": "string",
-                "airbyte_secret": true,
-                "title": "Password",
-                "order": 2
-              }
-            }
-          },
-          {
-            "title": "BROWSER",
-            "type": "object",
-            "order": 1,
-            "properties": {
-              "auth_type": {
-                "type": "string",
-                "const": "BROWSER",
-                "enum": ["BROWSER"],
-                "default": "BROWSER",
-                "order": 0
-              }
-            }
-          }
-        ],
+      "username": {
+        "title": "User",
+        "description": "Username to use to access the database.",
+        "type": "string",
         "order": 1
+      },
+      "password": {
+        "title": "Password",
+        "description": "Password associated with the username.",
+        "type": "string",
+        "airbyte_secret": true,
+        "order": 2
       },
       "schema": {
         "title": "Default Schema",
@@ -105,7 +40,7 @@
       },
       "ssl": {
         "title": "SSL Connection",
-        "description": "Encrypt data using SSL. When activating SSL, please select one of the connection modes.",
+        "description": "Encrypt data using SSL. When activating SSL, please select one of the SSL modes.",
         "type": "boolean",
         "default": false,
         "order": 3
@@ -231,23 +166,10 @@
         "order": 5
       },
       "query_band": {
-        "description": "Specifies the custom session query band",
+        "description": "Defines the custom session query band using name-value pairs. For example, 'org=Finance;report=Fin123;'",
         "title": "Query Band",
         "type": "string",
         "order": 6
-      },
-      "raw_data_schema": {
-        "type": "string",
-        "description": "The database to write raw tables into",
-        "title": "Raw table database (defaults to airbyte_internal)",
-        "order": 7
-      },
-      "disable_type_dedupe": {
-        "type": "boolean",
-        "default": false,
-        "description": "Disable Writing Final Tables. WARNING! The data format in _airbyte_data is likely stable but there are no guarantees that other metadata columns will remain the same in future versions",
-        "title": "Disable Final Tables. (WARNING! Unstable option; Columns in raw table schema might change between versions)",
-        "order": 8
       }
     }
   }
