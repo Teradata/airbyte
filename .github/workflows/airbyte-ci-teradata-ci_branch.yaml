@@ -16,7 +16,7 @@ jobs:
       - name: "Checkout Source Code"
         uses: actions/checkout@v4.2.2
         with:
-          ref: master
+          ref: td_query_band
           persist-credentials: false
       - name: "Install PIP"
         run: |
