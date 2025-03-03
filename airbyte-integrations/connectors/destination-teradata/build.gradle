@@ -1,6 +1,7 @@
 plugins {
     id 'application'
     id 'airbyte-java-connector'
+    id 'jacoco'
 }
 
 airbyteJavaConnector {
