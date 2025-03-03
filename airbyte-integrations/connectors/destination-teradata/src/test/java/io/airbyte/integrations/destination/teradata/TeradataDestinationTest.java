@@ -114,14 +114,14 @@ public class TeradataDestinationTest {
     return Jsons.jsonNode(ImmutableMap.of(
         JdbcUtils.HOST_KEY, getHostName(),
         JdbcUtils.USERNAME_KEY, getUserName(),
-        JdbcUtils.PASSWORD_KEY,
-        getPassword()));
+        JdbcUtils.PASSWORD_KEY, getPassword()));
   }
 
   private JsonNode buildConfigWithExtraJdbcParameters(final String extraParam) {
     return Jsons.jsonNode(ImmutableMap.of(
         JdbcUtils.HOST_KEY, getHostName(),
         JdbcUtils.USERNAME_KEY, getUserName(),
+        JdbcUtils.PASSWORD_KEY, getPassword(),
         JdbcUtils.SCHEMA_KEY, getSchemaName(),
         JdbcUtils.JDBC_URL_PARAMS_KEY, extraParam));
   }

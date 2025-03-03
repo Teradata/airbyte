@@ -190,8 +190,8 @@ class TeradataDestination :
     override fun toJdbcConfig(config: JsonNode): JsonNode {
         val schema = config[JdbcUtils.SCHEMA_KEY]?.asText() ?: TeradataConstants.DEFAULT_SCHEMA_NAME
         val jdbcUrl = String.format("jdbc:teradata://%s/", config[JdbcUtils.HOST_KEY].asText())
-        val userName = config[JdbcUtils.USERNAME_KEY].asText()
-        val password = config[JdbcUtils.PASSWORD_KEY].asText()
+        val userName = config[JdbcUtils.USERNAME_KEY]?.asText()
+        val password = config[JdbcUtils.PASSWORD_KEY]?.asText()
         val configBuilder =
             ImmutableMap.builder<Any, Any>()
                 .put(JdbcUtils.JDBC_URL_KEY, jdbcUrl)
