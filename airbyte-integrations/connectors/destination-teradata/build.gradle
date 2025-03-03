@@ -16,6 +16,14 @@ java {
     }
 }
 
+test {
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    dependsOn test
+}
+
 airbyteJavaConnector.addCdkDependencies()
 
 application {
