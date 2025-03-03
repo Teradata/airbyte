@@ -1,0 +1,65 @@
+name: airbyte-ci-teradata-code-coverage-td_query_band
+on:
+  push:
+    branches:
+      - teradata_master
+  workflow_dispatch:
+  schedule:
+  - cron: "0 6 * * *"
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+jobs:
+  teradata-tests:
+    name: "Run Airbyte Teradata Destination Connector Unit and Integration Tests"
+    runs-on: "ubuntu-22.04"
+    steps:
+      - name: "Checkout Source Code"
+        uses: actions/checkout@v4.2.2
+        with:
+          ref: td_query_band
+          persist-credentials: false
+      - name: "Install PIP"
+        run: |
+          sudo apt-get update
+          sudo apt install python3-pip
+      - name: "Install Python"
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: "Install Java 17"
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+      - name: "Install Node 16"
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16'
+      - name: Install jq
+        run: sudo apt install -y jq
+      - name: "Install Docker and Docker Compose"
+        run: |
+          sudo apt-get update
+          sudo apt-get install ca-certificates curl gnupg lsb-release
+          sudo mkdir -p /etc/apt/keyrings
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+          sudo chmod a+r /etc/apt/keyrings/docker.gpg
+          echo  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install docker-ce docker-ce-cli containerd.io docker-compose-plugin
+          sudo chmod 666 /var/run/docker.sock
+      - name: "Run Teradata Destination Connector Tests"
+        run:  |  
+          python3 -m venv  venv
+          source venv/bin/activate
+          ./gradlew clean :airbyte-integrations:connectors:destination-teradata:test
+          ls airbyte-integrations/connectors/destination-teradata/build/reports/jacoco/test
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: airbyte-teradata-connector-code-coverage-report
+          path: |
+            airbyte-integrations/connectors/destination-teradata/build/reports/jacoco/test
+          
