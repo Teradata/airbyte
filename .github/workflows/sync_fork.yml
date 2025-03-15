@@ -11,7 +11,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: tgymnich/fork-sync@v1.8
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          base: master
-          head: master
+          ref: master  
+          fetch-depth: 0  # Fetch full history to enable rebasing
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/airbytehq/airbyte.git
+          git fetch upstream
+
+      - name: Rebase target branch with upstream changes
+        run: |
+          git rebase upstream/master
+
+      - name: Force push updated branch
+        run: |
+          git push --force-with-lease origin master
