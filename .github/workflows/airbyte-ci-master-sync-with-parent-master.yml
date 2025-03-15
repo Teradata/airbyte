@@ -25,7 +25,7 @@ jobs:
       - name: Add upstream remote
         run: |
           git remote add upstream https://github.com/airbytehq/airbyte.git
-          git fetch upstream
+          git fetch upstream master
 
       - name: Rebase target branch with upstream changes
         run: |
