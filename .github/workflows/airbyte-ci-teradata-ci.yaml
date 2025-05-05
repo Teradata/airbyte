@@ -53,4 +53,3 @@ jobs:
           name: airbyte-teradata-connector-tests-report-onbranch-${{ vars.BRANCH_NAME }}
           path: |
             tests_report
-			
