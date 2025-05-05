@@ -16,58 +16,39 @@ jobs:
       - name: "Checkout Source Code"
         uses: actions/checkout@v4
         with:
-          ref: td_develop
+          ref: ${{ vars.BRANCH_NAME }}
           persist-credentials: false
-      - name: "Install PIP"
+      - name: "Create required files"
+        id: create-config-files
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt install python3-pip
-      - name: "Install Python"
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      - name: "Install Java 17"
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-      - name: "Install Node 16"
-        uses: actions/setup-node@v4
-        with:
-          node-version: '16'
-      - name: Install jq
-        run: sudo apt install -y jq
-      - name: "Install Docker and Docker Compose"
-        run: |
-          sudo apt-get update
-          sudo apt-get install ca-certificates curl gnupg lsb-release
-          sudo mkdir -p /etc/apt/keyrings
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-          sudo chmod a+r /etc/apt/keyrings/docker.gpg
-          echo  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-          sudo apt-get update
-          sudo apt-get install docker-ce docker-ce-cli containerd.io docker-compose-plugin
-          sudo chmod 666 /var/run/docker.sock
-      - name: Download Test artifacts from Teradata S3
-        run: |
-          mkdir airbyte-integrations/connectors/destination-teradata/secrets
-          aws s3 cp s3://${{ vars.NON_SSL_CSAE_ENV_AWS_PATH }} airbyte-integrations/connectors/destination-teradata/secrets
-          aws s3 cp s3://${{ vars.SSL_CSAE_ENV_AWS_PATH }} airbyte-integrations/connectors/destination-teradata/secrets
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
-      - name: Install airbyte-ci binary
+          mkdir -p airbyte-integrations/connectors/destination-teradata/secrets
+          cd airbyte-integrations/connectors/destination-teradata/secrets
+          cat <<EOF > typing_config.json
+          { "env_url" : "${{ vars.CSAE_SERVER }}","env_name" : "${{ vars.CSAE_TYPING_ENV_NAME }}","env_region": "${{ vars.CSAE_REGION }}","env_password": "${{ secrets.CSAE_ENV_PASSWORD }}","env_token" : "${{ secrets.CSAE_ENV_TOKEN }}", "username": "${{ vars.CSAE_ENV_USER_NAME }}", "jdbc_url_params" : "CHARSET=UTF8" }
+          EOF
+          cat <<EOF > raw_override_typing_config.json
+          { "env_url" : "${{ vars.CSAE_SERVER }}","env_name" : "${{ vars.CSAE_RAW_OVERRIDE_TYPING_ENV_NAME }}","env_region": "${{ vars.CSAE_REGION }}","env_password": "${{ secrets.CSAE_ENV_PASSWORD }}","env_token" : "${{ secrets.CSAE_ENV_TOKEN }}", "ssl":true,"ssl_mode":{"mode":"allow"} , "username": "${{ vars.CSAE_ENV_USER_NAME }}", "jdbc_url_params" : "CHARSET=UTF8" }
+          EOF
+          cat <<EOF > disable_typing_config.json
+          { "env_url" : "${{ vars.CSAE_SERVER }}","env_name" : "${{ vars.CSAE_DISABLE_TYPING_ENV_NAME }}","env_region": "${{ vars.CSAE_REGION }}","env_password": "${{ secrets.CSAE_ENV_PASSWORD }}","env_token" : "${{ secrets.CSAE_ENV_TOKEN }}", "ssl":true,"ssl_mode":{"mode":"allow"} , "username": "${{ vars.CSAE_ENV_USER_NAME }}", "jdbc_url_params" : "CHARSET=UTF8" }
+          EOF
+      - name: "Install airbyte-ci binary and Run Teradata Destination Connector Integration Tests"
         id: install-airbyte-ci
         shell: bash
         run: |
-          curl -sSL  https://connectors.airbyte.com/files/airbyte-ci/releases/ubuntu/3.0.2/airbyte-ci --output airbyte-ci-bin
-          sudo mv airbyte-ci-bin /usr/local/bin/airbyte-ci
-          sudo chmod +x /usr/local/bin/airbyte-ci
-      - name: Test connectors
-        run: |
-          airbyte-ci connectors --name=destination-teradata test
-          mkdir integrationtestreport
-          ls -al ./airbyte-integrations/connectors/destination-teradata/build/reports/tests/integrationTestJava
-          cp -r  ./airbyte-integrations/connectors/destination-teradata/build/reports/tests/integrationTestJava integrationtestreport
-      
+          make tools.airbyte-ci.clean
+          curl -sSL  https://connectors.airbyte.com/files/airbyte-ci/releases/ubuntu/4.48.1/airbyte-ci --output airbyte-ci-bin
+          mv airbyte-ci-bin $HOME/.local/bin/airbyte-ci
+          chmod +x $HOME/.local/bin/airbyte-ci
+          export PATH="$HOME/.local/bin:$PATH"]            
+          airbyte-ci --disable-update-check connectors --name destination-teradata test
+          mkdir tests_report
+          zip -r report.zip airbyte-ci/connectors/pipelines/pipeline_reports/airbyte-ci/connectors/test/manual/
+          mv report.zip tests_report
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: airbyte-teradata-connector-tests-report-onbranch-${{ vars.BRANCH_NAME }}
+          path: |
+            tests_report
