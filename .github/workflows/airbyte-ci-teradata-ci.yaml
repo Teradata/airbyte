@@ -42,4 +42,5 @@ jobs:
           ls 
           ls $HOME
           ls $HOME/.local
+          mkdir -p $HOME/.local/bin/
           ls $HOME/.local/bin/
