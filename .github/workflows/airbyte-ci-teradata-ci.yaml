@@ -38,9 +38,19 @@ jobs:
         shell: bash
         run: |
           make tools.airbyte-ci.clean
-          curl -sSL  https://connectors.airbyte.com/files/airbyte-ci/releases/ubuntu/4.48.1/airbyte-ci --output airbyte-ci-bin
-          ls 
-          ls $HOME
-          ls $HOME/.local
+          curl -sSL  https://connectors.airbyte.com/files/airbyte-ci/releases/ubuntu/4.48.1/airbyte-ci --output airbyte-ci-bin         
           mkdir -p $HOME/.local/bin/
-          ls $HOME/.local/bin/
+          mv airbyte-ci-bin $HOME/.local/bin/airbyte-ci
+          chmod +x $HOME/.local/bin/airbyte-ci
+          export PATH="$HOME/.local/bin:$PATH"]            
+          airbyte-ci --disable-update-check connectors --name destination-teradata test
+          mkdir tests_report
+          zip -r report.zip airbyte-ci/connectors/pipelines/pipeline_reports/airbyte-ci/connectors/test/manual/
+          mv report.zip tests_report
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: airbyte-teradata-connector-tests-report-onbranch-${{ vars.BRANCH_NAME }}
+          path: |
+            tests_report
+			
