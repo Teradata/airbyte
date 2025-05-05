@@ -47,7 +47,7 @@ jobs:
           zip -r report.zip airbyte-ci/connectors/pipelines/pipeline_reports/airbyte-ci/connectors/test/manual/
           mv report.zip tests_report
       - name: Archive production artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: airbyte-teradata-connector-tests-report-onbranch-${{ vars.BRANCH_NAME }}
           path: |
