@@ -425,7 +425,7 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
     ): String {
         val query =
             java.lang.String.format(
-                "CREATE TABLE %s AS ( SELECT %s %s, %s %s, CAST(NULL AS TIMESTAMP WITH TIME ZONE) %s, %s %s, CAST(NULL AS JSON) %s, 0 %s FROM %s.%s) WITH DATA",
+                "CREATE TABLE %s AS ( SELECT %s %s, %s %s, CAST(NULL AS TIMESTAMP WITH TIME ZONE) %s, %s %s, CAST(NULL AS JSON CHARACTER SET UNICODE) %s, 0 %s FROM %s.%s) WITH DATA",
                 rawTableName,
                 COLUMN_NAME_AB_ID,
                 COLUMN_NAME_AB_RAW_ID,

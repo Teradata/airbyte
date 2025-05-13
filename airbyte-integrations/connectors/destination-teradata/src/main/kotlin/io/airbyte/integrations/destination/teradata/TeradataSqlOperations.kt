@@ -140,7 +140,7 @@ class TeradataSqlOperations : JdbcSqlOperations() {
           %s JSON,
           %s TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP(6),
           %s TIMESTAMP WITH TIME ZONE DEFAULT NULL,
-          %s JSON,
+          %s JSON CHARACTER SET UNICODE,
           %s BIGINT
           ) UNIQUE PRIMARY INDEX (%s);
         
