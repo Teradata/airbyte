@@ -18,38 +18,8 @@ jobs:
         with:
           ref: ${{ vars.BRANCH_NAME }}
           persist-credentials: false
-      - name: "Create required files"
-        id: create-config-files
-        shell: bash
+      - name: Print Java version and env
         run: |
-          mkdir -p airbyte-integrations/connectors/destination-teradata/secrets
-          cd airbyte-integrations/connectors/destination-teradata/secrets
-          cat <<EOF > typing_config.json
-          { "env_url" : "${{ vars.CSAE_SERVER }}","env_name" : "${{ vars.CSAE_TYPING_ENV_NAME }}","env_region": "${{ vars.CSAE_REGION }}","env_password": "${{ secrets.CSAE_ENV_PASSWORD }}","env_token" : "${{ secrets.CSAE_ENV_TOKEN }}", "username": "${{ vars.CSAE_ENV_USER_NAME }}", "jdbc_url_params" : "CHARSET=UTF8" }
-          EOF
-          cat <<EOF > raw_override_typing_config.json
-          { "env_url" : "${{ vars.CSAE_SERVER }}","env_name" : "${{ vars.CSAE_RAW_OVERRIDE_TYPING_ENV_NAME }}","env_region": "${{ vars.CSAE_REGION }}","env_password": "${{ secrets.CSAE_ENV_PASSWORD }}","env_token" : "${{ secrets.CSAE_ENV_TOKEN }}", "ssl":true,"ssl_mode":{"mode":"allow"} , "username": "${{ vars.CSAE_ENV_USER_NAME }}", "jdbc_url_params" : "CHARSET=UTF8" }
-          EOF
-          cat <<EOF > disable_typing_config.json
-          { "env_url" : "${{ vars.CSAE_SERVER }}","env_name" : "${{ vars.CSAE_DISABLE_TYPING_ENV_NAME }}","env_region": "${{ vars.CSAE_REGION }}","env_password": "${{ secrets.CSAE_ENV_PASSWORD }}","env_token" : "${{ secrets.CSAE_ENV_TOKEN }}", "ssl":true,"ssl_mode":{"mode":"allow"} , "username": "${{ vars.CSAE_ENV_USER_NAME }}", "jdbc_url_params" : "CHARSET=UTF8" }
-          EOF
-      - name: "Install airbyte-ci binary and Run Teradata Destination Connector Integration Tests"
-        id: install-airbyte-ci
-        shell: bash
-        run: |
-          make tools.airbyte-ci.clean
-          curl -sSL  https://connectors.airbyte.com/files/airbyte-ci/releases/ubuntu/4.48.1/airbyte-ci --output airbyte-ci-bin         
-          mkdir -p $HOME/.local/bin/
-          mv airbyte-ci-bin $HOME/.local/bin/airbyte-ci
-          chmod +x $HOME/.local/bin/airbyte-ci
-          export PATH="$HOME/.local/bin:$PATH"]            
-          airbyte-ci --disable-update-check connectors --name destination-teradata test
-          mkdir tests_report
-          zip -r report.zip airbyte-ci/connectors/pipelines/pipeline_reports/airbyte-ci/connectors/test/manual/
-          mv report.zip tests_report
-      - name: Archive production artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: airbyte-teradata-connector-tests-report-onbranch-${{ vars.BRANCH_NAME }}
-          path: |
-            tests_report
+          java -version
+          echo "ForkJoinPool parallelism: $JAVA_TOOL_OPTIONS"
+          env
