@@ -1,36 +1,26 @@
 name: airbyte-ci-master-sync-with-parent-master
-
 on:
   schedule:
     - cron: '30 20,2 * * *' # At every 20.30 (8.30 PM) and 2.30 AM UTC timezone - 12.00 AM IST and 8 AM
   workflow_dispatch: # on button click
-
 jobs:
   sync:
-
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: master  
-          fetch-depth: 0  # Fetch full history to enable rebasing
-
-      - name: Configure Git
-        run: |
+       - name: Checkout Airbyte Repo
+         run: |
+          rm -rf airbyte-repo 
+          git clone --branch master https://github.com/airbytehq/airbyte.git airbyte-repo
+          cd airbyte-repo
+       - name: Configure Git
+         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Add upstream remote
-        run: |
-          git remote add upstream https://github.com/airbytehq/airbyte.git
-          git fetch upstream master
-
-      - name: Rebase target branch with upstream changes
-        run: |
-          git rebase upstream/master
-
-      - name: Force push updated branch
-        run: |
-          git push --force-with-lease origin master
+      
+       - name: Update master from Airbyte master repo
+         run: |
+          cd airbyte-repo
+          git remote add teradata-repo https://github.com/Teradata/airbyte.git
+          git push teradata-repo master:master --force
+          cd ..
+          rm -rf airbyte-repo
