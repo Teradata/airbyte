@@ -7,28 +7,29 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-       - name: Checkout Teradata Airbyte Repo
-         uses: actions/checkout@v4
-         with:
-          repository: Teradata/airbyte
-          ref: master
-          persist-credentials: false
-        
-       - name: Add Airbyte Upstream and Fetch
+
+       - name: Checkout Airbyte Repo
          run: |
-            git remote add airbyte-upstream https://github.com/airbytehq/airbyte.git
-            git fetch airbyte-upstream master
-        
+          rm -rf airbyte-repo 
+          git clone --branch master https://github.com/airbytehq/airbyte.git airbyte-repo
+          cd airbyte-repo
        - name: Configure Git
          run: |
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-        
-       - name: Merge Airbyte master into Teradata master
+          cd airbyte-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+       - name: Update master from Airbyte master repo
          run: |
-            git merge --no-ff --no-edit airbyte-upstream/master
-        
-       - name: Push merged changes to Teradata master
+          cd airbyte-repo
+          git remote add teradata-repo https://github.com/Teradata/airbyte.git
+          git fetch teradata-repo master
+          # Check out Teradata's master and merge airbytehq/master into it
+          git checkout master 
+          git reset --hard teradata-repo/master
+          git merge --no-ff --no-edit origin/master
+          # Push merged changes back to Teradata master
+          git push teradata-repo master    
+       - name: Clean up
          run: |
-            git push origin master
-
+          rm -rf airbyte-repo
