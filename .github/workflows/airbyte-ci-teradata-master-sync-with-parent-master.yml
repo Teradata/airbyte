@@ -7,7 +7,6 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-
        - name: Checkout Airbyte Repo
          run: |
           rm -rf airbyte-repo 
@@ -22,14 +21,9 @@ jobs:
        - name: Update master from Airbyte master repo
          run: |
           cd airbyte-repo
-          git remote add teradata-repo https://x-access-token:${{ secrets.GITHUBTOKEN }}@github.com/Teradata/airbyte.git
-          git fetch teradata-repo master
-          # Check out Teradata's master and merge airbytehq/master into it
-          git checkout master 
-          git reset --hard teradata-repo/master
-          git merge --no-ff --no-edit origin/master
-          # Push merged changes back to Teradata master
-          git push teradata-repo master    
-       - name: Clean up
-         run: |
+          git remote add teradata-repo https://github.com/Teradata/airbyte.git
+          git push teradata-repo master:master --force
+          cd ..
           rm -rf airbyte-repo
+
+     
