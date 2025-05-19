@@ -1,4 +1,4 @@
-name: airbyte-ci-master-sync-with-parent-master
+name: airbyte-ci-teradata-master-sync-with-parent-master
 on:
   schedule:
     - cron: '30 20,2 * * *' # At every 20.30 (8.30 PM) and 2.30 AM UTC timezone - 12.00 AM IST and 8 AM
