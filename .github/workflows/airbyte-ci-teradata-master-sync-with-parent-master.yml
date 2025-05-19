@@ -22,7 +22,7 @@ jobs:
        - name: Update master from Airbyte master repo
          run: |
           cd airbyte-repo
-          git remote add teradata-repo https://github.com/Teradata/airbyte.git
+          git remote add teradata-repo https://x-access-token:${{ secrets.GITHUBTOKEN }}@github.com/Teradata/airbyte.git
           git fetch teradata-repo master
           # Check out Teradata's master and merge airbytehq/master into it
           git checkout master 
