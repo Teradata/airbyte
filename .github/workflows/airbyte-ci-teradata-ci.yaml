@@ -1,5 +1,7 @@
 name: airbyte-ci-teradata-ci
 on:
+  schedule:
+    - cron: '30 20,2 * * *' # At every 20.30 (8.30 PM) and 2.30 AM UTC timezone - 12.00 AM IST and 8 AM
   push:
     branches:
       - td_develop
