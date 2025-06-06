@@ -338,18 +338,27 @@ class TeradataSqlOperations : JdbcSqlOperations() {
                     stmt.setTimestamp(++i, extractedAt)
                     stmt.setString(++i, airbyteMeta)
                     stmt.setLong(++i, generationId)
-                    LOGGER.debug(
-                        "Inserting record with UUID: $uuid, Data: $jsonData, Extracted At: $extractedAt, Meta: $airbyteMeta, Generation ID: $generationId",
+                    LOGGER.info(
+                        "Inserting record with UUID: {}, Data: {}, Extracted At: {}, Meta: {}, Generation ID: {}",
+                        uuid,
+                        jsonData,
+                        extractedAt,
+                        airbyteMeta,
+                        generationId
                     )
 
                     stmt.addBatch()
                     batchCount++
+                    LOGGER.info("batchCount: {}", batchCount)
+                    LOGGER.info("batchSize: {}", batchSize)
                     if (batchCount >= batchSize) {
+                        LOGGER.info("Executing batch")
                         stmt.executeBatch()
                         batchCount = 0
                     }
                 }
                 if (batchCount > 0) {
+                    LOGGER.info("Executing final batch")
                     stmt.executeBatch()
                 }
             } catch (e: SQLException) {
@@ -358,6 +367,7 @@ class TeradataSqlOperations : JdbcSqlOperations() {
                 throw Exception(e)
             }
         }
+        LOGGER.info("insertRecrodsInternalV2 is completed.")
     }
 
     /**
