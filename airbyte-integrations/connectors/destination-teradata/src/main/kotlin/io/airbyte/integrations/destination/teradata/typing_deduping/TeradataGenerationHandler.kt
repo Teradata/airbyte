@@ -31,7 +31,13 @@ class TeradataGenerationHandler() : JdbcGenerationHandler {
         namespace: String,
         name: String
     ): Long? {
+        LOGGER.info(
+            "Checking for generation id in table $namespace.$name."
+        )
         val result = isTableExists(database, namespace, name)
+        LOGGER.info(
+            "Table $namespace.$name exists : $result."
+        )
         if (result) {
             val columnExists =
                 database

@@ -81,6 +81,7 @@ class TeradataDestinationHandler(
      * @throws IllegalArgumentException If the Airbyte type is unsupported.
      */
     override fun toJdbcTypeName(airbyteType: AirbyteType): String {
+        LOGGER.info("Converting AirbyteType to JDBC type: $airbyteType")
         val type =
             if (airbyteType is AirbyteProtocolType) {
                 Companion.toJdbcTypeName(airbyteType)
@@ -102,6 +103,7 @@ class TeradataDestinationHandler(
      */
     @Throws(Exception::class)
     override fun isFinalTableEmpty(id: StreamId): Boolean {
+        LOGGER.info("Checking if final table is empty for stream ID: $id")
         try {
             return !jdbcDatabase.queryBoolean(
                 dslContext
@@ -138,6 +140,7 @@ class TeradataDestinationHandler(
     override fun getDeleteStatesSql(
         destinationStates: Map<StreamId, MinimumDestinationState>
     ): String {
+        LOGGER.info("Generating SQL to delete destination states for streams: $destinationStates")
         val query =
             dslContext
                 .deleteFrom(
@@ -174,6 +177,7 @@ class TeradataDestinationHandler(
     override fun commitDestinationStates(
         destinationStates: Map<StreamId, MinimumDestinationState>
     ) {
+        LOGGER.info("Committing destination states: $destinationStates")
         try {
             if (destinationStates.isEmpty()) {
                 return
@@ -239,6 +243,9 @@ class TeradataDestinationHandler(
     }
 
     private fun isTableExists(schemaName: String?, tableName: String?): Boolean {
+        LOGGER.info(
+            "Checking if table exists: schemaName=$schemaName, tableName=$tableName",
+        )
         val countQuery =
             dslContext
                 .select(DSL.count())
@@ -261,6 +268,7 @@ class TeradataDestinationHandler(
      */
     override fun getAllDestinationStates():
         Map<AirbyteStreamNameNamespacePair, MinimumDestinationState> {
+        LOGGER.info("Retrieving all destination states from the database")
         try {
             if (!isTableExists(rawTableNamespace, DESTINATION_STATE_TABLE_NAME)) {
                 val sqlStatement: String =
@@ -359,6 +367,7 @@ class TeradataDestinationHandler(
      */
     override fun findExistingTable(id: StreamId): Optional<TableDefinition> =
         if (isTableExists(id.finalNamespace, id.finalName)) {
+            LOGGER.info("Finding existing table for stream ID: {}", id)
             findExistingTable(jdbcDatabase, id.finalNamespace, null, id.finalName)
         } else {
             Optional.empty()
@@ -369,9 +378,11 @@ class TeradataDestinationHandler(
      * @param sql The SQL statements to execute.
      */
     override fun execute(sql: Sql) {
+        LOGGER.info("Executing SQL statements within a transaction: {}", sql)
         val transactions: List<List<String>> = sql.transactions
         for (transaction in transactions) {
             try {
+                LOGGER.info("Executing transaction: {}", transaction)
                 jdbcDatabase.executeWithinTransaction(transaction)
             } catch (se: SQLException) {
                 // Ignoring specific error codes i.e. object already exists, object does not exist

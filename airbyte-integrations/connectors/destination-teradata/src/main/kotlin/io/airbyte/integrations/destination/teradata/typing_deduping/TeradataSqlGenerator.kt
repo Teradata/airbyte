@@ -61,6 +61,7 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
      * @return A SQL statement to create the schema.
      */
     override fun createSchema(schema: String): Sql {
+        LOGGER.info("Creating schema: $schema")
         return of(
             String.format(
                 "CREATE DATABASE \"%s\" AS PERMANENT = 120e6, SPOOL = 120e6;",
@@ -103,6 +104,7 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
      * @return The SQL field expression to extract the Airbyte meta column.
      */
     override fun buildAirbyteMetaColumn(columns: LinkedHashMap<ColumnId, AirbyteType>): Field<*> {
+       LOGGER.info("buildAirbyteMetaColumn")
         return field(
                 sql(
                     """COALESCE($COLUMN_NAME_AB_META, CAST('{"changes":[]}' AS JSON))""",
@@ -117,6 +119,7 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
      * @return The SQL condition for checking if the CDC `deleted_at` column is not null.
      */
     override fun cdcDeletedAtNotNullCondition(): Condition {
+        LOGGER.info("cdcDeletedAtNotNullCondition")
         return field(name(COLUMN_NAME_AB_LOADED_AT))
             .isNotNull()
             .and(extractColumnAsJson(cdcDeletedAtColumn).notEqual("null"))
@@ -146,6 +149,7 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
         columns: LinkedHashMap<ColumnId, AirbyteType>,
         useExpensiveSaferCasting: Boolean
     ): MutableList<Field<*>> {
+        LOGGER.info("extractRawDataFields")
         val fields: MutableList<Field<*>> = ArrayList()
         columns.forEach { (key, value) ->
             if (
@@ -277,6 +281,7 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
         primaryKey: List<ColumnId>,
         cursorField: Optional<ColumnId>
     ): Field<Int> {
+        LOGGER.info("getRowNumber")
         val primaryKeyFields: List<Field<*>> =
             primaryKey
                 .stream()
@@ -311,6 +316,7 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
      * @return The corresponding SQL dialect type.
      */
     override fun toDialectType(airbyteProtocolType: AirbyteProtocolType): DataType<*> {
+        LOGGER.info("toDialectType")
         val s =
             when (airbyteProtocolType) {
                 AirbyteProtocolType.STRING -> SQLDataType.VARCHAR(10000)
@@ -338,7 +344,7 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
      * if `force` is true.
      */
     override fun createTable(stream: StreamConfig, suffix: String, force: Boolean): Sql {
-
+        LOGGER.info("createTable")
         val finalTableIdentifier: String =
             stream.id.finalName + suffix.lowercase(Locale.getDefault())
 
@@ -376,6 +382,7 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
      * @return The SQL statement to drop the old table and rename the new one.
      */
     override fun overwriteFinalTable(stream: StreamId, finalSuffix: String): Sql {
+        LOGGER.info("overwriteFinalTable")
         val spaceName: String = stream.finalNamespace
         val tableName: String = stream.finalName + finalSuffix
         val newTableName: String = stream.finalName
@@ -404,6 +411,7 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
      * @return The SQL statement to perform the migration.
      */
     override fun migrateFromV1toV2(streamId: StreamId, namespace: String, tableName: String): Sql {
+        LOGGER.info("migrateFromV1toV2")
         val rawTableName: Name = name(streamId.rawNamespace, streamId.rawName)
         return transactionally(
             createV2RawTableFromV1Table(rawTableName, namespace, tableName),
@@ -423,6 +431,7 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
         namespace: String,
         tableName: String
     ): String {
+        LOGGER.info("createV2RawTableFromV1Table")
         val query =
             java.lang.String.format(
                 "CREATE TABLE %s AS ( SELECT %s %s, %s %s, CAST(NULL AS TIMESTAMP WITH TIME ZONE) %s, %s %s, CAST(NULL AS JSON) %s, 0 %s FROM %s.%s) WITH DATA",
@@ -474,6 +483,7 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
         minRawTimestamp: Optional<Instant>,
         useExpensiveSaferCasting: Boolean
     ): Sql {
+        LOGGER.info("insertAndDeleteTransaction")
         val finalSchema = streamConfig.id.finalNamespace
         val finalTable =
             streamConfig.id.finalName + (finalSuffix?.lowercase(Locale.getDefault()) ?: "")
@@ -577,6 +587,7 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
         tableName: String,
         minRawTimestamp: Optional<Instant>
     ): String {
+        LOGGER.info("checkpointRawTable")
         val dsl = dslContext
         var extractedAtCondition = DSL.noCondition()
         if (minRawTimestamp.isPresent) {
@@ -605,6 +616,7 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
      * @return The SQL delete statement to remove CDC deleted rows from the final table.
      */
     private fun deleteFromFinalTableCdcDeletes(schema: String, tableName: String): String {
+        LOGGER.info("deleteFromFinalTableCdcDeletes")
         val dsl = dslContext
         return dsl.deleteFrom(DSL.table(DSL.quotedName(schema, tableName)))
             .where(DSL.field(DSL.quotedName(cdcDeletedAtColumn.name)).isNotNull())
@@ -630,6 +642,7 @@ class TeradataSqlGenerator() : JdbcSqlGenerator(namingTransformer = StandardName
         primaryKeys: List<ColumnId>,
         cursor: Optional<ColumnId>
     ): String {
+        LOGGER.info("deleteFromFinalTable")
         val dsl = dslContext
         // Unknown type doesn't play well with where .. in (select..)
         val airbyteRawId: Field<Any> =

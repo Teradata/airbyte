@@ -35,6 +35,9 @@ class TeradataSqlOperations : JdbcSqlOperations() {
      */
     @Throws(Exception::class)
     override fun createSchemaIfNotExists(database: JdbcDatabase?, schemaName: String) {
+        LOGGER.info(
+            "Creating database $schemaName if it does not exist.",
+        )
         if (!isSchemaExists(database, schemaName)) {
             database?.execute(
                 String.format(
@@ -63,6 +66,9 @@ class TeradataSqlOperations : JdbcSqlOperations() {
      */
     @Throws(Exception::class)
     override fun isSchemaExists(database: JdbcDatabase?, schemaName: String?): Boolean {
+        LOGGER.info(
+            "Checking if database $schemaName exists.",
+        )
         return (database?.queryInt(
             String.format(
                 "SELECT COUNT(1) FROM DBC.DatabasesV WHERE DatabaseName = '%s'",
@@ -86,6 +92,9 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         schemaName: String?,
         tableName: String?
     ) {
+        LOGGER.info(
+            "Creating table $tableName in schema $schemaName if it does not exist.",
+        )
         val tabelCount = checkTableExists(database, schemaName, tableName)
         if (tabelCount == 0) {
             database.execute(
@@ -115,6 +124,9 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         schemaName: String?,
         tableName: String?
     ): Int? {
+        LOGGER.info(
+            "Checking if table $tableName exists in schema $schemaName.",
+        )
         val query =
             """SELECT count(1)  FROM DBC.TablesV WHERE TableName = '$tableName'  AND DataBaseName = '$schemaName' """.trimIndent()
         return database?.queryInt(query)
@@ -133,6 +145,9 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         schemaName: String?,
         tableName: String?
     ): String {
+        LOGGER.info(
+            "Creating table $tableName in schema $schemaName.",
+        )
         return String.format(
             """
         CREATE TABLE %s.%s, FALLBACK  (
@@ -171,6 +186,9 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         schemaName: String?,
         tableName: String?
     ) {
+        LOGGER.info(
+            "Dropping table $tableName in schema $schemaName if it exists.",
+        )
         database.execute(dropTableQuery(schemaName, tableName))
     }
 
@@ -182,6 +200,9 @@ class TeradataSqlOperations : JdbcSqlOperations() {
      * @return The SQL query string for truncating the table.
      */
     private fun dropTableQuery(schemaName: String?, tableName: String?): String {
+        LOGGER.info(
+            "Dropping table $tableName in schema $schemaName.",
+        )
         return String.format("DROP TABLE  %s.%s;", schemaName, tableName)
     }
 
@@ -193,6 +214,9 @@ class TeradataSqlOperations : JdbcSqlOperations() {
      * @param rawName The name of the table to be dropped.
      */
     override fun overwriteRawTable(database: JdbcDatabase, rawNamespace: String, rawName: String) {
+        LOGGER.info(
+            "Overwriting raw table $rawName in namespace $rawNamespace.",
+        )
         val tmpName = rawName + AbstractStreamOperation.TMP_TABLE_SUFFIX
         dropTableIfExists(database, rawNamespace, rawName)
         renameTableIfExists(database, rawNamespace, tmpName, rawName)
@@ -213,6 +237,9 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         oldTableName: String?,
         newTableName: String?
     ) {
+        LOGGER.info(
+            "Renaming table $oldTableName to $newTableName in schema $schemaName if it exists.",
+        )
         database.execute(renameTableQuery(schemaName, oldTableName, newTableName))
     }
 
@@ -228,6 +255,9 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         oldTableName: String?,
         newTableName: String?
     ): String {
+        LOGGER.info(
+            "Renaming table $oldTableName to $newTableName in schema $schemaName.",
+        )
         return String.format(
             "RENAME TABLE  %s.%s TO %s.%s;",
             schemaName,
@@ -254,7 +284,12 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         syncId: Long,
         generationId: Long
     ) {
-
+        LOGGER.info(
+            "Inserting records into table $tableName in schema $schemaName.",
+        )
+        LOGGER.info(
+            "Number of records to insert: ${records.size}",
+        )
         if (records.isEmpty()) {
             return
         }
@@ -303,6 +338,10 @@ class TeradataSqlOperations : JdbcSqlOperations() {
                     stmt.setTimestamp(++i, extractedAt)
                     stmt.setString(++i, airbyteMeta)
                     stmt.setLong(++i, generationId)
+                    LOGGER.debug(
+                        "Inserting record with UUID: $uuid, Data: $jsonData, Extracted At: $extractedAt, Meta: $airbyteMeta, Generation ID: $generationId",
+                    )
+
                     stmt.addBatch()
                     batchCount++
                     if (batchCount >= batchSize) {
