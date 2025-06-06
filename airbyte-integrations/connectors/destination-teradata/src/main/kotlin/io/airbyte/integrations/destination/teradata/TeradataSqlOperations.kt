@@ -309,7 +309,9 @@ class TeradataSqlOperations : JdbcSqlOperations() {
             try {
                 val stmt = con.prepareStatement(insertQueryComponent)
                 var batchCount = 0
+                LOGGER.info("insertQueryComponent - {}", insertQueryComponent)
                 for (record in records) {
+                    LOGGER.info("record : {}", record)
                     val uuid = UUID.randomUUID().toString()
                     val jsonData = record.serialized
                     val airbyteMeta =
@@ -355,6 +357,8 @@ class TeradataSqlOperations : JdbcSqlOperations() {
                         LOGGER.info("Executing batch")
                         stmt.executeBatch()
                         batchCount = 0
+                    } else {
+                        LOGGER.info("only added to batch")
                     }
                 }
                 if (batchCount > 0) {
@@ -362,9 +366,12 @@ class TeradataSqlOperations : JdbcSqlOperations() {
                     stmt.executeBatch()
                 }
             } catch (e: SQLException) {
+                LOGGER.info("SQL Exception occured")
                 LOGGER.error(e.message)
                 LOGGER.error(e.nextException.message)
                 throw Exception(e)
+            } catch (ex: Exception) {
+                LOGGER.info("Exception occured")
             }
         }
         LOGGER.info("insertRecrodsInternalV2 is completed.")
