@@ -308,6 +308,7 @@ class TeradataSqlOperations : JdbcSqlOperations() {
         if(records.size < 5000) {
             batchSize = records.size
         }
+        LOGGER.info("batchSize - {}", batchSize)
         database.execute { con ->
             try {
                 val stmt = con.prepareStatement(insertQueryComponent)
