@@ -305,6 +305,9 @@ class TeradataSqlOperations : JdbcSqlOperations() {
                 JavaBaseConstants.COLUMN_NAME_AB_GENERATION_ID,
             )
         val batchSize = 5000
+        if(records.size < 5000) {
+            batchSize = records.size
+        }
         database.execute { con ->
             try {
                 val stmt = con.prepareStatement(insertQueryComponent)
@@ -312,14 +315,19 @@ class TeradataSqlOperations : JdbcSqlOperations() {
                 LOGGER.info("insertQueryComponent - {}", insertQueryComponent)
                 for (record in records) {
                     LOGGER.info("record : {}", record)
+                    LOGGER.info("Processing record index {}", recordIndex)
+
                     val uuid = UUID.randomUUID().toString()
-                    val jsonData = record.serialized
+                    LOGGER.info("uuid {}", uuid)
+                    val jsonData = record.serialized ?: "{}"
+                    LOGGER.info("jsonData {}", jsonData)
                     val airbyteMeta =
                         if (record.record!!.meta == null) {
                             "{\"changes\":[]}"
                         } else {
                             Jsons.serialize(record.record!!.meta)
                         }
+                    LOGGER.info("Serialized data size (bytes): {}", jsonData.toByteArray().size)
 
                     var i = 0
                     stmt.setString(++i, uuid)
@@ -348,7 +356,6 @@ class TeradataSqlOperations : JdbcSqlOperations() {
                         airbyteMeta,
                         generationId
                     )
-
                     stmt.addBatch()
                     batchCount++
                     LOGGER.info("batchCount: {}", batchCount)
@@ -366,12 +373,12 @@ class TeradataSqlOperations : JdbcSqlOperations() {
                     stmt.executeBatch()
                 }
             } catch (e: SQLException) {
-                LOGGER.info("SQL Exception occured")
+                LOGGER.info("SQL Exception occured, {}", e.message )
                 LOGGER.error(e.message)
                 LOGGER.error(e.nextException.message)
                 throw Exception(e)
             } catch (ex: Exception) {
-                LOGGER.info("Exception occured")
+                LOGGER.info("Exception occured, {}", ex.message)
             }
         }
         LOGGER.info("insertRecrodsInternalV2 is completed.")
