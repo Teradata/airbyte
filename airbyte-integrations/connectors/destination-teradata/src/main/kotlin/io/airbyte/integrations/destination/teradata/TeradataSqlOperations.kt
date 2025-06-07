@@ -304,7 +304,7 @@ class TeradataSqlOperations : JdbcSqlOperations() {
                 JavaBaseConstants.COLUMN_NAME_AB_META,
                 JavaBaseConstants.COLUMN_NAME_AB_GENERATION_ID,
             )
-        val batchSize = 5000
+        var batchSize = 5000
         if(records.size < 5000) {
             batchSize = records.size
         }
@@ -315,7 +315,6 @@ class TeradataSqlOperations : JdbcSqlOperations() {
                 LOGGER.info("insertQueryComponent - {}", insertQueryComponent)
                 for (record in records) {
                     LOGGER.info("record : {}", record)
-                    LOGGER.info("Processing record index {}", recordIndex)
 
                     val uuid = UUID.randomUUID().toString()
                     LOGGER.info("uuid {}", uuid)
